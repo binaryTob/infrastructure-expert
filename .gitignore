@@ -1,0 +1,38 @@
+# ── Operator data — never commit ──────────────────────────────────────────
+
+# SSH target config (contains host/user/port — no credentials, but host-specific)
+config/target.json
+
+# Evidence per run (may contain redacted-but-host-specific metadata)
+evidence/
+
+# Generated HTML reports
+reports/
+
+# Current run id marker (temporary state)
+.run_id
+
+# ── Python artifacts ──────────────────────────────────────────────────────
+
+__pycache__/
+*.pyc
+*.pyo
+
+# ── OS / editor / temp ────────────────────────────────────────────────────
+
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.log
+*.tmp
+*.bak
+
+# ── Tracked files (everything else is the reusable framework) ─────────────
+# skills/<area>/*/SKILL.md  — reusable instruction sets
+# scripts/{ssh_exec,redact,run_id,gen_report}.{sh,py}  — core tools
+# workflows/*.md             — entry points
+# lib/*                      — severity matrix, compat tables
+# config/target.example.json — template for new targets
+# AGENTS.md README.md *.md   — documentation
+# .gitignore                 — this file

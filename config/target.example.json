@@ -1,0 +1,13 @@
+{
+  "ssh": {
+    "host": "192.168.1.100",
+    "port": 22,
+    "user": "root",
+    "private_key": "~/.ssh/id_ed25519",
+    "connect_timeout": 15,
+    "command_timeout": 60
+  },
+  "objective": "Analizar completamente la infraestructura.",
+  "context": "Nivel de seguridad: L1+L2 solamente (no corras ningun comando que pueda modificar algo en el servidor, solo verificar).",
+  "mode": "FULL"
+}

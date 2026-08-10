@@ -1,0 +1,82 @@
+version: "2.0"
+
+required:
+  - id
+  - name
+  - category
+  - phase
+  - risk
+  - parameters
+  - output
+
+optional:
+  - depends_on
+  - provides
+  - triggers
+  - false_positives
+  - references
+
+parameter_types:
+  string: "texto libre (path, hostname)"
+  integer: "numero entero (PID, puerto, nucleos)"
+  float: "numero decimal (umbral % CPU, GB RAM)"
+  datetime: "timestamp ISO 8601"
+  duration: "intervalo (1h, 30m, 7d)"
+  boolean: "true/false"
+  enum: "lista cerrada de valores"
+  filepath: "ruta validada en filesystem remoto"
+  regex: "expresion regular"
+
+block_risk_levels:
+  ro: "readonly — solo lectura, cero modificacion al servidor"
+  info: "readonly — consulta de metadata inofensiva"
+  probe: "readonly — mediciones repetidas en el tiempo (snapshots), sin carga artificial"
+
+execution_modes:
+  auto: "ejecucion automatica sin confirmacion (solo ro/info/probe)"
+  confirm: "requiere confirmacion explicita (acciones no read-only)"
+  manual: "no automatizable, requiere intervencion humana"
+
+severity_levels:
+  P0: "Critical — puede causar caida, perdida de datos, indisponibilidad"
+  P1: "High — problema importante, resolverse pronto"
+  P2: "Medium — optimizacion recomendable"
+  P3: "Low — mejora menor o de conveniencia"
+  P4: "Informational — observacion sin accion inmediata"
+
+confidence_levels:
+  HIGH: "evidencia directa y reproducible"
+  MEDIUM: "evidencia indirecta o de un solo snapshot, requiere validacion"
+  LOW: "indicio debil, no concluyente"
+  INSUFFICIENT_DATA: "no hay datos suficientes para afirmar nada"
+
+capacity_status:
+  NORMAL: "consumo esperado y estable"
+  WATCH: "monitorear, sin accion inmediata"
+  WARNING: "acercandose a limite o con tendencia negativa"
+  CRITICAL: "en o mas alla del limite, accion inmediata"
+
+output_schema:
+  type: object
+  properties:
+    skill_id: { type: string }
+    execution_time: { type: string, format: datetime }
+    host: { type: string }
+    risk_level: { type: string, enum: [ro, info, probe] }
+    evidence_files:
+      type: array
+      items: { type: string, description: "rutas a artefactos de evidencia" }
+    findings:
+      type: array
+      items:
+        type: object
+        properties:
+          severity: { type: string, enum: [P0, P1, P2, P3, P4] }
+          category: { type: string }
+          confidence: { type: string, enum: [HIGH, MEDIUM, LOW, INSUFFICIENT_DATA] }
+          observation: { type: string }
+          evidence: { type: string }
+          analysis: { type: string }
+          recommendation: { type: string }
+          validation: { type: string }
+          rollback: { type: string }

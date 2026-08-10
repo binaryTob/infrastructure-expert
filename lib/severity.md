@@ -33,7 +33,7 @@ Before assigning severity, validate all five:
 ```
                   HIGH impact
                       |
-    MEDIUM          CRITICAL          ← fix now
+    MEDIUM          CRITICAL          <- fix now
      (fix soon)     (fix now)
         |               |
 LOW -----------------+--- HIGH likelihood
@@ -43,3 +43,11 @@ LOW -----------------+--- HIGH likelihood
                   LOW impact
 ```
 
+## Capacity status (resource analysis)
+
+| Status   | Criteria                                     |
+|----------|----------------------------------------------|
+| NORMAL   | Consumption within expected stable range.    |
+| WATCH    | Monitor closely, no immediate action needed. |
+| WARNING  | Approaching limit or negative trend.         |
+| CRITICAL | At or beyond limit, immediate action needed. |

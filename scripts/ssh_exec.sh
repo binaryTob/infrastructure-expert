@@ -3,9 +3,9 @@
 #
 # Usage:
 #   scripts/ssh_exec.sh <evidence-basename> <category> <safety-level> "<command>"
-#   scripts/ssh_exec.sh <evidence-basename> <category> <safety-level> "<command>" <evidence_dir>
+#   scripts/ssh_exec.sh <evidence-basename> <category> <safety-level> "<command>" <run_dir>
 #
-# Environment (or config/target.json read via scripts/read_target.sh):
+# Environment (or config/target.json):
 #   SSH_HOST, SSH_PORT, SSH_USER, SSH_KEY, CONNECT_TIMEOUT, COMMAND_TIMEOUT
 #
 # Behaviour:
@@ -13,7 +13,7 @@
 #   * blocks any command matching the Level-3 mutability blocklist
 #   * runs the command, captures exit/stdout/stderr
 #   * pipes stdout/stderr through scripts/redact.sh
-#   * writes a redacted evidence YAML to $EVIDENCE_DIR/<evidence-basename>.yml
+#   * writes a redacted evidence YAML to $RUN_DIR/<evidence-basename>.yml
 #   * prints a short result line + the evidence path to stdout
 #
 # Exit codes: 0 (ran+recorded, regardless of remote exit), 2 (blocked L3),
@@ -25,7 +25,6 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
-# --- load target config -----------------------------------------------------
 HOST="${SSH_HOST:-}"
 PORT="${SSH_PORT:-}"
 USER="${SSH_USER:-}"
@@ -34,7 +33,6 @@ CT="${CONNECT_TIMEOUT:-15}"
 TO="${COMMAND_TIMEOUT:-60}"
 
 if [[ -z "$HOST" || -z "$USER" ]]; then
-  # try to read config/target.json
   if [[ -f "$ROOT/config/target.json" ]]; then
     get() { python3 - "$ROOT/config/target.json" "$1" <<'PY'
 import json,sys,pathlib
@@ -60,24 +58,17 @@ PORT="${PORT:-22}"
 HOST="${HOST:?missing ssh.host}"
 USER="${USER:?missing ssh.user}"
 
-# --- args -------------------------------------------------------------------
 if [[ $# -lt 4 ]]; then
-  echo "usage: $0 <evidence-basename> <category> <safety L1|L2> \"<command>\" [evidence_dir]" >&2
+  echo "usage: $0 <evidence-basename> <category> <safety L1|L2> \"<command>\" [run_dir]" >&2
   exit 4
 fi
 EV_BASE="$1"; CATEGORY="$2"; SAFETY="$3"; CMD="$4"
 EV_DIR="${5:-$(scripts/run_id.sh dir)}"
 
-# --- Level-3 mutability blocklist (binding, see SAFETY.md) ------------------
-# Refuse anything that mutates the host/cluster. Simple + fail-closed: any
-# grep parse error (rc=2) blocks. Defense-in-depth beside the agent context.
 is_level3() {
   local lc lc_clean
-  # normalize whitespace only; matching is case-insensitive (-i) so keep case.
   lc="$(printf '%s' "$1" | tr -s '[:space:]' ' ')"
   lc="${lc# }"; lc="${lc% }"
-  # Remove harmless redirects to /dev/null (discard) before redirect-pattern tests,
-  # so `cmd 2>/dev/null` is not mistaken for a truncating redirect to a real file.
   lc_clean="$(printf '%s' "$lc" | sed -E 's/[012]?>>?[[:space:]]*\/dev\/null//g; s/<[[:space:]]*\/dev\/null//g')"
   local p rc
   local patterns=(
@@ -153,11 +144,6 @@ SSH_OPTS=(
 
 timeout "${TO}" ssh "${SSH_OPTS[@]}" "$USER@$HOST" "$CMD" >"$REMOTE_OUT" 2>"$REMOTE_ERR" || REMOTE_RC=$?
 
-# capture remote identity proof on first call of a run (cheap, read-only)
-if [[ ! -f "$EV_DIR/00_connectivity.yml" && "$EV_BASE" != "00_connectivity" ]]; then
-  :
-fi
-
 REDACTED_OUT="$("$HERE/redact.sh" -s <"$REMOTE_OUT")"
 REDACTED_ERR="$("$HERE/redact.sh" -s <"$REMOTE_ERR")"
 
@@ -180,7 +166,6 @@ REDACTED_ERR="$("$HERE/redact.sh" -s <"$REMOTE_ERR")"
 
 rm -f "$REMOTE_OUT" "$REMOTE_ERR"
 
-# short stdout line for the agent
 N_LINES=$(printf '%s\n' "$REDACTED_OUT" | grep -c . || true)
 printf '[ok] rc=%d lines=%d ev=%s :: %s\n' "$REMOTE_RC" "$N_LINES" "$EV_PATH" "$CMD"
 exit 0

@@ -15,15 +15,12 @@ elif not sys.stdin.isatty():
 else:
     sys.exit(0)
 
-# PEM private key blocks -> single marker
 data = re.sub(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----.*?-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----",
               "<<REDACTED:PRIVATE_KEY>>", data, flags=re.S)
 
-# scheme://user:password@host
 data = re.sub(r"([a-z][a-z0-9+.\-]*://[^:@/\s~]+:)([^@/\s]+)(@)",
               r"\1<<REDACTED:SECRET>>\3", data, flags=re.I)
 
-# Authorization: Bearer <token>
 data = re.sub(r"(authorization:\s*bearer\s+)[A-Za-z0-9._\-]+",
               r"\1<<REDACTED:BEARER>>", data, flags=re.I)
 
@@ -40,7 +37,6 @@ def _kv_repl(m):
     return pre + "<<REDACTED:SECRET>>"
 data = _kv.sub(_kv_repl, data)
 
-# K8s secret base64-ish values: a key: <20+ base64> line, excluding known metadata keys
 _md = {"apiVersion","kind","metadata","name","namespace","creationTimestamp","type",
        "labels","annotations","uid","resourceVersion","status","clusterName","generation"}
 _b64 = re.compile(r"^(\s*)([a-z0-9_.\-]+)(\s*:\s*)([A-Za-z0-9+/]{20,}={0,2})\s*$", re.I)
@@ -50,7 +46,6 @@ def _b64_line(l):
     return m.group(1) + m.group(2) + m.group(3) + "<<REDACTED:BASE64_BLOB>>"
 data = "\n".join(_b64_line(l) for l in data.split("\n"))
 
-# long key-like blobs (>=60 base64 or hex) on their own line
 data = "\n".join(
     "<<REDACTED:BLOB>>" if (
         re.fullmatch(r"\s*[A-Za-z0-9+/]{60,}={0,2}\s*", l) or

@@ -1,0 +1,290 @@
+version: "2.1"
+generated: "2026-08-10"
+
+skills:
+  # Discovery phase
+  - id: "system_inventory"
+    file: "discovery/system-inventory.md"
+    category: "discovery"
+    phase: "discover"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: []
+    provides: ["os", "kernel", "uptime", "cpu_topology", "memory_total", "disk_topology", "net_ifaces"]
+
+  - id: "systemd_analysis"
+    file: "discovery/systemd-analysis.md"
+    category: "systemd"
+    phase: "discover"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["services_running", "services_enabled", "services_failed", "timers", "unit_resources", "restart_counts", "timers_active"]
+
+  # Resource analysis phase
+  - id: "cpu_analysis"
+    file: "resources/cpu-analysis.md"
+    category: "cpu"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["load_avg", "cpu_per_process", "cpu_trend"]
+
+  - id: "memory_analysis"
+    file: "resources/memory-analysis.md"
+    category: "memory"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["mem_usage", "swap", "mem_per_process", "psi"]
+
+  - id: "disk_analysis"
+    file: "resources/disk-analysis.md"
+    category: "disk"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["fs_usage", "inodes", "large_dirs", "mounts"]
+
+  - id: "io_analysis"
+    file: "resources/io-analysis.md"
+    category: "io"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["iostat", "vmstat_io", "io_wait", "io_per_process"]
+
+  - id: "process_analysis"
+    file: "resources/process-analysis.md"
+    category: "process"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["top_cpu_processes", "top_mem_processes", "zombies", "orphans", "root_processes"]
+
+  - id: "network_analysis"
+    file: "resources/network-analysis.md"
+    category: "network"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections"]
+
+  # Platform discovery (conditional)
+  - id: "docker_analysis"
+    file: "platform/docker-analysis.md"
+    category: "docker"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    triggers: ["PRESENT:docker"]
+    provides: ["containers", "container_stats", "images", "volumes", "container_limits"]
+
+  - id: "kubernetes_analysis"
+    file: "platform/kubernetes-analysis.md"
+    category: "kubernetes"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    triggers: ["PRESENT:kubectl"]
+    provides: ["nodes", "pods", "resource_requests_limits", "pod_restarts", "storage_classes", "rbac", "ingress", "networkpolicy", "services"]
+
+  - id: "ingress_nginx_analysis"
+    file: "platform/ingress-nginx-analysis.md"
+    category: "ingress"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["kubernetes_analysis"]
+    triggers: ["PRESENT:ingress-nginx"]
+    provides: ["ingress_features", "ingress_annotations", "waf_status"]
+
+  - id: "traefik_analysis"
+    file: "platform/traefik-analysis.md"
+    category: "ingress"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["kubernetes_analysis"]
+    triggers: ["PRESENT:traefik"]
+    provides: ["traefik_providers", "entrypoints", "middlewares", "tls_analysis"]
+
+  - id: "database_analysis"
+    file: "platform/database-analysis.md"
+    category: "database"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["network_analysis"]
+    triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:redis_socket"]
+    provides: ["db_engine", "db_connections", "db_size", "db_settings"]
+
+  # Security
+  - id: "security_analysis"
+    file: "security/security-analysis.md"
+    category: "security"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "process_analysis", "network_analysis"]
+    provides: ["ssh_posture", "privileged_processes", "suspicious_processes", "suspicious_connections", "persistence_indicators"]
+
+  # Configuration / Logs
+  - id: "configuration_analysis"
+    file: "analysis/configuration-analysis.md"
+    category: "configuration"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["systemd_analysis"]
+    provides: ["sysctl", "limits", "webserver_config", "db_config_summary"]
+
+  - id: "log_analysis"
+    file: "analysis/log-analysis.md"
+    category: "logging"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "disk_analysis"]
+    provides: ["journal_errors", "oom_in_logs", "disk_errors", "log_disk_usage"]
+
+  # Reliability / Observability / Backup (conditional on K8s)
+  - id: "reliability_analysis"
+    file: "reliability/reliability-analysis.md"
+    category: "reliability"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["kubernetes_analysis"]
+    triggers: ["PRESENT:kubectl"]
+    provides: ["ha_status", "spof_list", "storage_ha", "restart_analysis"]
+
+  - id: "observability_analysis"
+    file: "observability/observability-analysis.md"
+    category: "observability"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["kubernetes_analysis"]
+    provides: ["monitoring_stack", "metrics_available", "logging_stack", "alerting_status"]
+
+  - id: "backup_analysis"
+    file: "backup/backup-analysis.md"
+    category: "backup"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["kubernetes_analysis"]
+    provides: ["backup_mechanisms", "etcd_snapshots", "pvc_backup", "restore_readiness"]
+
+  # Capacity / Optimization / Migration (correlate phase)
+  - id: "capacity_analysis"
+    file: "analysis/capacity-analysis.md"
+    category: "capacity"
+    phase: "correlate"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on:
+      - "cpu_analysis"
+      - "memory_analysis"
+      - "disk_analysis"
+      - "io_analysis"
+      - "network_analysis"
+    provides: ["capacity_buckets", "trend", "headroom"]
+
+  - id: "optimization_analysis"
+    file: "analysis/optimization-analysis.md"
+    category: "optimization"
+    phase: "optimize"
+    risk: "advisory"
+    execution_mode: "auto"
+    depends_on: ["capacity_analysis"]
+    provides: ["optimization_candidates", "ranked_recommendations"]
+
+  - id: "migration_assessment"
+    file: "migration/migration-assessment.md"
+    category: "migration"
+    phase: "assess"
+    risk: "advisory"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["migration_readiness", "compatibility_matrix", "migration_phases", "migration_plan"]
+
+workflows:
+  full:
+    description: "Analisis completo de infraestructura (read-only)"
+    sequence:
+      - "system_inventory"
+      - "systemd_analysis"
+      - "cpu_analysis"
+      - "memory_analysis"
+      - "disk_analysis"
+      - "io_analysis"
+      - "process_analysis"
+      - "network_analysis"
+      - "docker_analysis"
+      - "kubernetes_analysis"
+      - "ingress_nginx_analysis"
+      - "traefik_analysis"
+      - "database_analysis"
+      - "configuration_analysis"
+      - "log_analysis"
+      - "security_analysis"
+      - "reliability_analysis"
+      - "observability_analysis"
+      - "backup_analysis"
+      - "capacity_analysis"
+      - "optimization_analysis"
+      - "migration_assessment"
+
+  quick:
+    description: "Triage rapido de salud (inventario + systemd + CPU/mem/disk/io + logs + seguridad)"
+    sequence:
+      - "system_inventory"
+      - "systemd_analysis"
+      - "cpu_analysis"
+      - "memory_analysis"
+      - "disk_analysis"
+      - "io_analysis"
+      - "log_analysis"
+      - "security_analysis"
+      - "capacity_analysis"
+
+  discovery:
+    description: "Solo descubrimiento e inventario"
+    sequence:
+      - "system_inventory"
+      - "systemd_analysis"
+      - "process_analysis"
+      - "network_analysis"
+
+  container:
+    description: "Enfocado en hosts con contenedores (Docker/K8s)"
+    sequence:
+      - "system_inventory"
+      - "docker_analysis"
+      - "kubernetes_analysis"
+      - "reliability_analysis"
+      - "observability_analysis"
+      - "process_analysis"
+      - "network_analysis"
+      - "capacity_analysis"
+
+  security:
+    description: "Auditoria de seguridad completa"
+    sequence:
+      - "system_inventory"
+      - "systemd_analysis"
+      - "process_analysis"
+      - "network_analysis"
+      - "security_analysis"
+      - "configuration_analysis"
+      - "log_analysis"

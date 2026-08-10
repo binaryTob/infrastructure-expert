@@ -3,11 +3,8 @@
 # SSH target config (contains host/user/port — no credentials, but host-specific)
 config/target.json
 
-# Evidence per run (may contain redacted-but-host-specific metadata)
-evidence/
-
-# Generated HTML reports
-reports/
+# Reportes: escaneos, evidencia y reportes generados
+reportes/
 
 # Current run id marker (temporary state)
 .run_id
@@ -28,11 +25,33 @@ __pycache__/
 *.tmp
 *.bak
 
+# ── Secrets / credentials (defensivo) ─────────────────────────────────────
+
+*.key
+*.pem
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+
+# ── SSH keys ──────────────────────────────────────────────────────────────
+
+id_rsa
+id_ed25519
+id_ecdsa
+*.pub
+
+# ── Runtime ───────────────────────────────────────────────────────────────
+
+*.pid
+
 # ── Tracked files (everything else is the reusable framework) ─────────────
-# skills/<area>/*/SKILL.md  — reusable instruction sets
-# scripts/{ssh_exec,redact,run_id,gen_report}.{sh,py}  — core tools
-# workflows/*.md             — entry points
-# lib/*                      — severity matrix, compat tables
+# skills/**/*.md   — reusable skill instruction sets
+# scripts/*.{sh,py} — core tools
+# workflows/*.md    — entry points
+# templates/*.md    — report templates
+# lib/*             — severity matrix, compat tables
 # config/target.example.json — template for new targets
-# AGENTS.md README.md *.md   — documentation
-# .gitignore                 — this file
+# AGENTS.md README.md *.md  — documentation
+# .gitignore        — this file

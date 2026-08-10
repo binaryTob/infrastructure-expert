@@ -1,76 +1,119 @@
 # SKILLS.md — Skill System
 
-A **skill** is a self‑contained capability the agent can select, validate, and execute. A skill is plain text (`SKILL.md`) — it contains a YAML frontmatter header plus a command inventory and interpretation guidance. There is no executable code in a skill; the agent *reads* the skill and runs the commands through `scripts/ssh_exec.sh` (read‑only SSH).
+A **skill** is a self-contained capability the agent can select, validate, and execute. A skill is plain text (`SKILL.md`) — it contains a YAML frontmatter header plus a command inventory and interpretation guidance. There is no executable code in a skill; the agent *reads* the skill and runs the commands through `scripts/ssh_exec.sh` (read-only SSH).
 
 ## Directory layout
 
 ```
 skills/
-└── <area>/            # discovery, linux, networking, security, docker,
-                       # waf, systemd, storage, databases, observability,
-                       # performance, backup, migration, hardening, reporting
-    └── <tech>/        # optional; e.g. skills/networking/cilium/
-        └── SKILL.md
+├── _index.yaml              <- master catalog with dependencies and triggers
+├── _schema.yaml             <- formal contract every skill must satisfy
+├── _template.md             <- canonical template for creating new skills
+├── common/
+│   └── helpers.md           <- reusable modules (ssh_run, redact, detect, etc.)
+├── discovery/               <- system inventory, systemd (services + resources)
+├── resources/               <- CPU, memory, disk, I/O, process, network
+├── platform/                <- Docker, Kubernetes, ingress-nginx, Traefik, database
+├── security/                <- security posture analysis
+├── analysis/                <- configuration, logs, capacity, optimization
+├── reliability/             <- HA/SPOF analysis
+├── observability/           <- monitoring stack health
+├── backup/                  <- backup mechanisms detection
+└── migration/               <- A->B migration assessment
 ```
-
-An `<area>` may contain a `SKILL.md` directly (e.g. `skills/networking/SKILL.md` for general network analysis) and/or nested technology folders (`skills/networking/traefik/`).
 
 ## SKILL.md schema
 
 ```markdown
 ---
-name: <kebab-case-name>            # unique, e.g. ingress-nginx-analysis
-area: <area>                       # from the layout above
-description: <one line>
-purpose: <what the agent achieves with this skill>
-safety: L1 | L2                    # default safety level of its commands
-prerequisites:                     # what must be true for it to apply
-  - <e.g. "kubectl context exists">
-applies_when:                      # command(s) whose success implies this skill applies
-  - "command -v kubectl"
-inputs:                            # what the agent must already have discovered
-  - <e.g. "kubeconfig location">
-discovery:                         # read-only commands to gather evidence
-  - "<command>"
-tests:                             # level-2 non-destructive tests
-  - "<command>"
-evidence_artifacts:                # list of evidence files this skill produces
-  - "<evidence yaml basename>"
-interpretation:                    # how to turn evidence -> findings
-  - <rule of thumb, thresholds, FP guidance>
-risk_model: <how severity is assigned>
-remediation_template: |
-  WHAT:
-  WHY:
-  HOW:
-  RISK:
-  PRIORITY:
-  VALIDATION:
-  ROLLBACK:
+id: <kebab-case-id>
+name: <human-readable name>
+version: "1.0"
+category: <cpu|memory|disk|io|network|...>
+phase: <discover|analyze|correlate|optimize|assess>
+risk: readonly|advisory
+execution_mode: auto|confirm|manual
+depends_on:
+  - <skill-id>
+provides:
+  - <evidence-key>
+triggers:
+  - "PRESENT:<binary>"
+  - "CONDITION:<expression>"
+false_positives:
+  - "FP description"
 references:
-  - <official docs / advisories>
+  - "URL doc"
+parameters:
+  OUTPUT_DIR:
+    type: filepath
+    default: "{{RUN_DIR}}/<skill-id>"
+    description: "Evidence directory for this skill"
+  SSH_TARGET:
+    type: string
+    required: true
+    description: "SSH spec: user@host or alias"
+  SAMPLE_INTERVAL:
+    type: duration
+    default: "30s"
+  SAMPLE_COUNT:
+    type: integer
+    default: 4
+output:
+  format: json
+  schema: output_schema
 ---
 
-# <Skill name> — body
+# Skill description
 
-Narrative guidance: how the agent runs `discovery` + `tests`, what to look for,
-how to avoid false positives, and how to phrase findings.
+## Objective
+What this skill measures and why.
+
+## Commands
+### Block 1
+```bash
+# [risk:ro] [mode:auto]
+ssh {{SSH_TARGET}} '<readonly-command>'
+```
+
+### Block 2 (conditional)
+```bash
+# [risk:ro] [mode:auto] [requires:COMPONENT]
+ssh {{SSH_TARGET}} '<command>'
+```
+
+## Analysis
+- Finding A -> conclusion X
+- Finding B -> conclusion Y
+
+## Thresholds
+| Metric | NORMAL | WATCH | WARNING | CRITICAL |
+|--------|--------|-------|---------|----------|
+| (%)    | < 50   | 50-70 | 70-85   | > 85     |
+
+## Evidence produced
+- `metric.txt` in `{{OUTPUT_DIR}}`
+
+## Security
+Read-only. All blocks are L1 or L2.
 ```
 
 ## Skill selection (the agent does this every run)
 
 1. After global discovery, build the inventory of present technologies.
-2. For each `<area>/<tech>`, check `applies_when`.
+2. For each skill in `_index.yaml`, check `depends_on` and `triggers`.
 3. Select skills where prerequisites are satisfied by current evidence.
-4. Run `discovery` → `tests` → `interpretation` for each selected skill.
-5. If a technology is present but has no skill → **generate one** (`applies_when` + `discovery` + `tests` + `interpretation`), validate it, run it, persist it to `skills/<area>/<tech>/SKILL.md`.
+4. Run `discovery` -> `tests` -> `interpretation` for each selected skill.
+5. If a technology is present but has no skill -> **generate one** (per `_template.md`), validate against `_schema.yaml`, run it, persist it.
 
 ## Adding / generating a skill
 
-To add manually: create the folder + `SKILL.md` following the schema above. To generate dynamically during a run, see `WORKFLOW.md` step "dynamic skill generation".
+To add manually: create the folder + `SKILL.md` following the schema and `_template.md`. Add an entry in `_index.yaml`.
 
-## Anti‑patterns (forbidden)
+To generate dynamically during a run, see `WORKFLOW.md` step 6 "dynamic skill generation".
 
-- A skill that only contains `TODO` / placeholder text. Every persisted skill is functional (`discovery` + `tests` + `interpretation` populated).
-- A skill whose `tests` mutate the host (Level 3) — such steps must instead be proposed under `remediation_template` with an approval gate.
-- Hard‑coding host/IP/credentials in a skill. A skill is reusable across servers; only `config/target.json` is host‑specific.
+## Anti-patterns (forbidden)
+
+- A skill that only contains `TODO` / placeholder text. Every persisted skill is functional.
+- A skill whose commands mutate the host (Level 3) — such steps must instead be proposed under `remediation_template` with an approval gate.
+- Hard-coding host/IP/credentials in a skill. A skill is reusable across servers; only `config/target.json` is host-specific.

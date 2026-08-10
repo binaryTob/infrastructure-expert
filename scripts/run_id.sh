@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# scripts/run_id.sh — derive a stable per-run id + evidence dir.
+# scripts/run_id.sh — derive a stable per-run id + reportes dir.
 #
 # Usage:
-#   scripts/run_id.sh dir          # print and create evidence/<run-id>/, reuse if exists
+#   scripts/run_id.sh dir          # print and create reportes/<run-id>/, reuse if exists
 #   scripts/run_id.sh id           # print run id only
 #
 # Run id format: <YYYYMMDD-HHMM>-<hostslug>. Reused for the lifetime of the run
@@ -32,6 +32,6 @@ fi
 
 case "$mode" in
   id) printf '%s\n' "$rid" ;;
-  dir) dir="$ROOT/evidence/$rid"; mkdir -p "$dir"; printf '%s\n' "$dir" ;;
+  dir) dir="$ROOT/reportes/$rid"; mkdir -p "$dir"; printf '%s\n' "$dir" ;;
   *) echo "usage: $0 dir|id" >&2; exit 4 ;;
 esac

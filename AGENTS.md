@@ -74,9 +74,9 @@ infrastructure-expert/
 │   ├── common/            <- reusable helpers
 │   ├── discovery/         <- system inventory, systemd (services + resources)
 │   ├── resources/         <- CPU, memory, disk, I/O, process, network
-│   ├── platform/          <- Docker, K8s, ingress-nginx, Traefik, database
+│   ├── platform/          <- Docker, K8s, ingress-nginx, Traefik, database, web server, TLS
 │   ├── security/          <- security posture analysis
-│   ├── analysis/          <- configuration, logs, capacity, optimization
+│   ├── analysis/          <- configuration, logs, capacity, optimization, http health
 │   ├── reliability/       <- HA/SPOF analysis
 │   ├── observability/     <- monitoring stack health
 │   ├── backup/            <- backup mechanisms detection

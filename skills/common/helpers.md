@@ -64,6 +64,10 @@ detect_components() {
     ss -tulpn 2>/dev/null | grep -qE ":5432\b" && echo "PRESENT:postgresql_socket"
     ss -tulpn 2>/dev/null | grep -qE ":3306\b" && echo "PRESENT:mysql_socket"
     ss -tulpn 2>/dev/null | grep -qE ":6379\b" && echo "PRESENT:redis_socket"
+    ss -tulpn 2>/dev/null | grep -qE ":80 |:443 |:8080 |:8443 " && echo "PRESENT:http_server"
+    [ -d /etc/letsencrypt/live ] && echo "PRESENT:letsencrypt"
+    command -v certbot >/dev/null 2>&1 && echo "PRESENT:certbot"
+    grep -rliE "adapter: (postgresql|mysql|mysql2)|DATABASE_URL" /opt /home /root /srv /app --include="*.yml" --include="*.yaml" --include=".env*" 2>/dev/null | head -1 | grep -q . && echo "PRESENT:db_config"
     [ -f /etc/os-release ] && . /etc/os-release && echo "OS:${PRETTY_NAME:-unknown}"
     systemd-detect-virt 2>/dev/null || true'
 }

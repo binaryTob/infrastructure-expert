@@ -71,6 +71,12 @@ ssh {{SSH_TARGET}} 'ip -br addr 2>/dev/null; echo ===; ip route 2>/dev/null | he
 ssh {{SSH_TARGET}} 'for b in docker docker-compose containerd ctr crictl nerdctl kubectl k3s kubeadm k0s helm kustomize podman runc nginx httpd apache2 haproxy traefik caddy envoy cilium calico flannel modsec openappsec postgres psql mysql mariadbd redis-server redis-cli mongod rabbitmqctl elasticsearch prometheus grafana loki vector fluent-bit fluentd jaeger node_exporter cadvisor fail2ban-client; do p=$(command -v $b 2>/dev/null); [ -n "$p" ] && echo "PRESENT:$b -> $p"; done; echo ===; ss -H -tlnp 2>/dev/null | awk '"'"'{print $4}'"'"' | sort -u | head -30'
 ```
 
+### Web server + TLS + DB config detection (triggers web/tls/http/db skills)
+```bash
+# [risk:ro] [mode:auto]
+ssh {{SSH_TARGET}} 'ss -H -tlnp 2>/dev/null | grep -qE ":80 |:443 |:8080 |:8443 " && echo "PRESENT:http_server"; [ -d /etc/letsencrypt/live ] && echo "PRESENT:letsencrypt"; command -v certbot >/dev/null 2>&1 && echo "PRESENT:certbot"; grep -rliE "adapter: (postgresql|mysql|mysql2)|DATABASE_URL" /opt /home /root /srv /app --include="*.yml" --include="*.yaml" --include=".env*" 2>/dev/null | head -1 | grep -q . && echo "PRESENT:db_config"; ls -1 /etc/letsencrypt/live/ 2>/dev/null'
+```
+
 ### Config locations probe (existence only, NOT full dump)
 ```bash
 # [risk:ro] [mode:auto]

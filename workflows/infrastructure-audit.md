@@ -55,11 +55,11 @@ GENERATE REPORT -> PRINT EXECUTIVE SUMMARY
 
 | Modo | Skills | Descripcion |
 |------|--------|-------------|
-| `full` | 22 skills | Analisis completo |
-| `quick` | 8 skills | Triage rapido |
+| `full` | 27 skills | Analisis completo |
+| `quick` | 13 skills | Triage rapido |
 | `discovery` | 4 skills | Solo descubrimiento e inventario |
-| `container` | 7 skills | Host de contenedores |
-| `security` | 6 skills | Auditoria de seguridad |
+| `container` | 13 skills | Host de contenedores |
+| `security` | 7 skills | Auditoria de seguridad |
 
 ## Directorio de reportes
 

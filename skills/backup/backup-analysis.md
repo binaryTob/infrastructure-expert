@@ -1,72 +1,85 @@
 ---
 id: "backup_analysis"
 name: "Backup Analysis"
-version: "2.0"
+version: "3.0"
 category: "backup"
 phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
-depends_on: ["kubernetes_analysis"]
+depends_on: ["system_inventory"]
 triggers: []
-provides: ["backup_mechanisms", "etcd_snapshots", "pvc_backup", "restore_readiness"]
+provides: ["backup_mechanisms", "db_backups", "filesystem_backups", "restore_readiness", "etcd_snapshots"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/backup" }
   SSH_TARGET: { type: "string", required: true }
 output: { format: "json", schema: "output_schema" }
 ---
+
 # Backup Analysis
 
-Detect backup mechanisms: velero, etcd snapshots, database dump scripts, PVC backup.
-Distinguish "backup exists" from "restore works".
+## Objective
+Detect backup mechanisms and — critically — whether restore is likely to work, on ANY
+host (VM, Docker, Kubernetes). Distinguish "a backup job exists" from "a restore was
+ever tested". No backup for persistent data is a CRITICAL finding.
 
-This skill CONSUMES evidence from `system_inventory` (cron jobs already detected there
-via the runtime detection + config locations) and `kubernetes_analysis` (PVC/StorageClass
-already fetched). It only runs commands for backup-specific detection.
+## Commands
 
-## Commands (only backup-specific — cron and PVC evidence come from dependencies)
-
-### Backup operators (velero etc)
+### Cron / timer backup jobs (runs always)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'kubectl get pods -A 2>/dev/null | grep -iE "velero|snapshot|backup|duplicati|restic|borg|borgmatic" || echo "no backup operator pods found"'
+ssh {{SSH_TARGET}} 'echo "=== CRONTAB ==="; cat /etc/crontab 2>/dev/null; ls /etc/cron.d/ 2>/dev/null; echo "=== BACKUP ENTRIES ==="; grep -riE "backup|dump|snapshot|archive|rsync|borg|restic|duplicity|pg_dump|mysqldump|mongodump|tar " /etc/crontab /etc/cron.d/ /etc/cron.daily/ /etc/cron.weekly/ /var/spool/cron/crontabs/ 2>/dev/null | grep -vE "^\s*#" | head -40 || echo "no-backup-cron"'
 ```
 
-### VolumeSnapshot CRDs
+### Systemd backup timers (runs always)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'kubectl get volumesnapshot -A 2>/dev/null; echo ===; kubectl get snapshotschedule -A 2>/dev/null; echo ===; kubectl get crd 2>/dev/null | grep -iE "snapshot|backup|velero"'
+ssh {{SSH_TARGET}} 'systemctl list-timers --all 2>/dev/null | grep -iE "backup|dump|snapshot|borg|restic|certbot|renew" || echo "no-backup-timers"'
 ```
 
-### etcd snapshot presence
+### Database backup scripts (runs always — local + remote DB)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'echo "=== ETCD SNAP DIR ==="; ls /var/lib/etcd/member/snap 2>/dev/null || echo "no etcd snap dir"; echo "=== ETCD BACKUP CRON ==="; grep -r "etcdctl snapshot save" /etc/cron* /var/spool/cron/ 2>/dev/null || echo "no etcd backup cron found"'
+ssh {{SSH_TARGET}} 'grep -rliE "pg_dump|mysqldump|mongodump|redis-cli.*save|sqlite3 .* .backup" /opt /usr/local/bin /home /root /etc 2>/dev/null | head -20 || echo "no-db-dump-scripts"; echo "=== REMOTE DB CONFIG ==="; grep -rhoiE "host:? [A-Za-z0-9.\-]+|hostname[:=] [A-Za-z0-9.\-]+|DB_HOST[=: ][A-Za-z0-9.\-]+" /opt /home /root /etc 2>/dev/null | grep -vE "localhost|127.0.0.1" | sort -u | head -20'
 ```
 
-### Database dump scripts
+### Backup destination + off-site (runs always)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'grep -r "pg_dump\|mysqldump\|redis-cli.*save\|mongodump" /etc/cron* /var/spool/cron/ /opt/ /usr/local/bin/ 2>/dev/null | head -20 || echo "no db dump scripts found"'
+ssh {{SSH_TARGET}} 'grep -rhiE "rclone|s3://|s3cmd|gs://|azure|scp |rsync .*@|gdrive|dropbox|backblaze" /etc /opt /usr/local/bin /home /root 2>/dev/null | grep -vE "^\s*#" | head -20 || echo "no-offsite-destination-detected"'
 ```
 
-### Cron backup detection
+### Backup freshness (recent backup artifacts)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'cat /etc/crontab /etc/cron.d/* /var/spool/cron/crontabs/* 2>/dev/null | grep -iE "backup|dump|snapshot|archive|rsync|borg|restic" | grep -v "^#" || echo "no backup cron entries found"'
+ssh {{SSH_TARGET}} 'find / -maxdepth 4 -type f \( -name "*.dump" -o -name "*.sql.gz" -o -name "*.tar.gz" -o -name "*.bak" -o -name "*.snap" \) -mtime -14 2>/dev/null | grep -viE "/proc|/sys|/usr/lib|/var/lib/docker" | head -30 || echo "no-recent-backup-artifacts"'
 ```
 
-## Analysis (consume kubernetes_analysis evidence)
-- Read `kubernetes/storage.txt` for PVC/StorageClass evidence.
-  - `local-path` PVCs with Delete reclaim = no automated volume snapshot.
-  - Stateful workloads on local-path without backups: CRITICAL data loss risk.
-- No velero/backup operator pods = no K8s-native backup (zero snapshots).
-- No etcd snapshot cron job = etcd backup not evidenced.
-- Quorum replicas provide resilience but NOT backup: no protection against logical corruption.
-- FACT: If no backup mechanism detected for persistent data and no etcd snapshot
-  automation, flag as CRITICAL gap.
+### Kubernetes-native backups (if k8s present)
+```bash
+# [risk:ro] [mode:auto] [requires:kubectl]
+ssh {{SSH_TARGET}} 'kubectl get pods -A 2>/dev/null | grep -iE "velero|restic|borg|backup" || echo "no-backup-operator"; echo ===; kubectl get crd 2>/dev/null | grep -iE "snapshot|backup|velero" || echo "no-backup-crd"; echo ===; ls /var/lib/etcd/member/snap 2>/dev/null || echo "no-etcd-snapdir"'
+```
+
+## Analysis
+
+- **No backup mechanism + persistent data present** (DB, uploads, volumes): CRITICAL data-loss risk.
+- **Backup job exists but destination is on the SAME disk/host**: not a real backup — one disk failure loses both.
+- **No off-site/remote destination**: MEDIUM/HIGH — no protection against host-level failure.
+- **Backup jobs exist but no evidence of a recent artifact (< 14 days)**: job likely failing silently — WARNING.
+- **No restore test ever**: "backup exists" != "restore works". Flag as HIGH if data is critical.
+- **Remote database (host != localhost)**: the DB may live elsewhere; verify whether its backups are this host's responsibility or the DB host's.
+- **Certbot/renew timer absent while using Let's Encrypt**: cert expiry outage risk (cross-ref `tls_certificate_analysis`).
+
+### Kubernetes hosts
+- No velero/backup operator + `local-path` PVCs = no automated volume snapshots; CRITICAL.
+- No etcd snapshot automation = etcd state unrecoverable on corruption.
+
+## False Positives
+- A `.tar.gz` in a source tree is NOT a backup artifact — check the path and mtime context before counting it.
+- Cron jobs referencing "backup" in a comment only (`#`) are excluded; don't flag commented-out jobs.
 
 ## Evidence
-- `backup-operators.txt`, `volume-snapshots.txt`, `etcd-snapshots.txt`, `db-dump-scripts.txt`, `cron-backups.txt`
+- `cron-backups.txt`, `backup-timers.txt`, `db-dump-scripts.txt`, `offsite.txt`, `freshness.txt`, `k8s-backup.txt`
 
 ## Security
-Read-only.
+Read-only. Never run a restore. Report "restore readiness" as a recommendation for the operator to test.

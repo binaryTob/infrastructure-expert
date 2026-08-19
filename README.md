@@ -100,7 +100,7 @@ infrastructure-expert/
 ├── scripts/               <- ssh_exec.sh, redact, run_id, gen_report
 ├── lib/
 │   └── severity.md        <- severity matrix
-├── skills/                <- 22 skills in 10 categories
+├── skills/                <- 27 skills in 11 categories
 │   ├── _index.yaml        <- master catalog
 │   ├── _schema.yaml       <- skill contract
 │   ├── _template.md       <- canonical template

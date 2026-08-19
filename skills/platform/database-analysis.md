@@ -27,6 +27,18 @@ Detect what database engines are running, their size, connections, and key confi
 ssh {{SSH_TARGET}} 'for p in postgres psql mysql mariadb mysqld redis-server redis-cli mongod mongosh; do echo -n "$p: "; command -v $p 2>/dev/null || echo "absent"; done; echo; ss -tlnp 2>/dev/null | grep -E ":5432|:3306|:6379|:27017|:9042|:9200"'
 ```
 
+### Remote / external database config (apps pointing at a DB off-host)
+```bash
+# [risk:ro] [mode:auto]
+ssh {{SSH_TARGET}} 'echo "=== DB CONFIG FILES ==="; find /opt /home /root /srv /app -maxdepth 5 -type f \( -name "database.yml" -o -name "database.yaml" -o -name "my.cnf" -o -name ".env" -o -name ".env.production" -o -name "settings.py" \) 2>/dev/null | head -30; echo; echo "=== CONNECTION TARGETS ==="; grep -rhoiE "(host|hostname|DB_HOST)[\"'"'"' :=\t]+[A-Za-z0-9.\-]+|DATABASE_URL=[a-z]+://[^@ \n]+@[^ \n]+" /opt /home /root /srv 2>/dev/null | grep -viE "localhost|127\.0\.0\.1" | sort -u | head -30'
+```
+
+### Remote DB reachability (non-destructive connect probe)
+```bash
+# [risk:probe] [mode:auto]
+ssh {{SSH_TARGET}} 'for hp in $(grep -rhoiE "(host|hostname)[\"'"'"' :=\t]+[A-Za-z0-9.\-]+" /opt /home /root /srv 2>/dev/null | grep -oiE "[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$" | grep -viE "localhost|\.com\.ar$" | sort -u | head -10); do port=$(grep -rhoiE "port[\"'"'"' :=\t]+[0-9]+" /opt /home /root /srv 2>/dev/null | grep -oE "[0-9]{2,5}" | head -1); p=${port:-5432}; timeout 4 bash -c "</dev/tcp/$hp/$p" 2>/dev/null && echo "REACHABLE $hp:$p" || echo "UNREACHABLE $hp:$p"; done'
+```
+
 ### PostgreSQL (if psql available)
 ```bash
 # [risk:ro] [mode:auto] [requires:psql]

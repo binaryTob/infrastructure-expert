@@ -76,6 +76,37 @@ skills:
     depends_on: ["system_inventory"]
     provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections"]
 
+  # Web server / TLS / HTTP (conditional — triggers on detected web server or certs)
+  - id: "web_server_analysis"
+    file: "platform/web-server-analysis.md"
+    category: "web"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    triggers: ["PRESENT:apache2", "PRESENT:httpd", "PRESENT:nginx", "PRESENT:haproxy", "PRESENT:http_server"]
+    provides: ["webserver_engine", "vhosts", "proxy_upstream_map", "proxy_status", "upstream_health"]
+
+  - id: "tls_certificate_analysis"
+    file: "platform/tls-certificate-analysis.md"
+    category: "tls"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    triggers: ["PRESENT:http_server", "PRESENT:apache2", "PRESENT:httpd", "PRESENT:nginx", "PRESENT:letsencrypt"]
+    provides: ["cert_expiry", "cert_issuer", "cert_sans", "cert_chain", "tls_protocols", "cert_host_match"]
+
+  - id: "http_health_analysis"
+    file: "analysis/http-health-analysis.md"
+    category: "web"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    triggers: ["PRESENT:http_server", "PRESENT:apache2", "PRESENT:httpd", "PRESENT:nginx"]
+    provides: ["endpoint_status", "redirect_chains", "response_times", "upstream_health", "security_headers", "internal_vs_external_reachability"]
+
   # Platform discovery (conditional): Docker deep troubleshooting
   - id: "docker_troubleshooting"
     file: "platform/docker-troubleshooting.md"
@@ -143,8 +174,8 @@ skills:
     risk: "readonly"
     execution_mode: "auto"
     depends_on: ["network_analysis"]
-    triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:redis_socket"]
-    provides: ["db_engine", "db_connections", "db_size", "db_settings"]
+    triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:redis_socket", "PRESENT:psql", "PRESENT:mysql", "PRESENT:redis-cli", "PRESENT:mongod", "PRESENT:db_config"]
+    provides: ["db_engine", "db_connections", "db_size", "db_settings", "db_location"]
 
   # Security
   - id: "security_analysis"
@@ -182,9 +213,8 @@ skills:
     phase: "analyze"
     risk: "readonly"
     execution_mode: "auto"
-    depends_on: ["kubernetes_analysis"]
-    triggers: ["PRESENT:kubectl"]
-    provides: ["ha_status", "spof_list", "storage_ha", "restart_analysis"]
+    depends_on: ["system_inventory", "systemd_analysis"]
+    provides: ["ha_status", "spof_list", "storage_ha", "restart_analysis", "recovery_mechanisms"]
 
   - id: "observability_analysis"
     file: "observability/observability-analysis.md"
@@ -192,8 +222,8 @@ skills:
     phase: "analyze"
     risk: "readonly"
     execution_mode: "auto"
-    depends_on: ["kubernetes_analysis"]
-    provides: ["monitoring_stack", "metrics_available", "logging_stack", "alerting_status"]
+    depends_on: ["system_inventory", "systemd_analysis"]
+    provides: ["monitoring_stack", "metrics_available", "logging_stack", "alerting_status", "log_rotation"]
 
   - id: "backup_analysis"
     file: "backup/backup-analysis.md"
@@ -201,8 +231,8 @@ skills:
     phase: "analyze"
     risk: "readonly"
     execution_mode: "auto"
-    depends_on: ["kubernetes_analysis"]
-    provides: ["backup_mechanisms", "etcd_snapshots", "pvc_backup", "restore_readiness"]
+    depends_on: ["system_inventory"]
+    provides: ["backup_mechanisms", "db_backups", "filesystem_backups", "restore_readiness", "etcd_snapshots"]
 
   # Capacity / Optimization / Migration (correlate phase)
   - id: "capacity_analysis"
@@ -249,6 +279,9 @@ workflows:
       - "io_analysis"
       - "process_analysis"
       - "network_analysis"
+      - "web_server_analysis"
+      - "tls_certificate_analysis"
+      - "http_health_analysis"
       - "docker_analysis"
       - "docker_troubleshooting"
       - "container_log_analysis"
@@ -267,7 +300,7 @@ workflows:
       - "migration_assessment"
 
   quick:
-    description: "Triage rapido de salud (inventario + systemd + CPU/mem/disk/io + logs + seguridad)"
+    description: "Triage rapido de salud (inventario + systemd + CPU/mem/disk/io + red + web/TLS + logs + seguridad)"
     sequence:
       - "system_inventory"
       - "systemd_analysis"
@@ -275,6 +308,10 @@ workflows:
       - "memory_analysis"
       - "disk_analysis"
       - "io_analysis"
+      - "network_analysis"
+      - "web_server_analysis"
+      - "tls_certificate_analysis"
+      - "http_health_analysis"
       - "log_analysis"
       - "security_analysis"
       - "capacity_analysis"
@@ -299,6 +336,9 @@ workflows:
       - "observability_analysis"
       - "process_analysis"
       - "network_analysis"
+      - "web_server_analysis"
+      - "tls_certificate_analysis"
+      - "http_health_analysis"
       - "capacity_analysis"
 
   security:

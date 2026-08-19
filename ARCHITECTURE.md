@@ -39,7 +39,7 @@ The "agent" is **not** a background daemon. It is an opencode (Claude Code-style
 - **`workflows/infrastructure-audit.md`** — the autonomous reasoning loop entry point. Modes: full, quick, discovery, container, security.
 - **`workflows/server-resource-analysis.md`** — resource/performance-focused workflow.
 - **`skills/<area>/<skill>.md`** — a capability: `applies_when` + `discovery` + `tests` + `interpretation` + `remediation_template`. Plain text; the agent reads and executes, never code.
-- **`skills/_index.yaml`** — master catalog of all 22 skills with dependencies and triggers.
+- **`skills/_index.yaml`** — master catalog of all skills with dependencies and triggers.
 - **`skills/_schema.yaml`** — formal contract every skill must satisfy.
 - **`skills/common/helpers.md`** — reusable modules: ssh_run, redact, detect, snapshot_loop, finding, safety_guard.
 - **`scripts/ssh_exec.sh`** — the only sanctioned way to reach the host. Reads `config/target.json`, runs a command, captures exit/stdout/stderr, writes a redacted evidence YAML.
@@ -85,4 +85,4 @@ agent prints executive summary to console
 - **Safety by construction**: `ssh_exec.sh` carries a mutability blocklist; the session context also forbids Level 3.
 - **Reusable across hosts**: only `config/target.json` changes. Skills are host-agnostic command inventories.
 - **Dynamic skill generation**: the loop detects "present tech, no skill" and writes a new `SKILL.md`, persisted for next time.
-- **Read-only by default**: all 22 skills are L1 or L2. Zero destructive actions without approval.
+- **Read-only by default**: all skills are L1 or L2. Zero destructive actions without approval.

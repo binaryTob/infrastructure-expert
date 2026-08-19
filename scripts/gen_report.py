@@ -115,6 +115,32 @@ def detect_components(evidence):
     has_db = "SOCKET_PRESENT" in db_out or bool(re.search(r':5432|:3306|:6379|:27017', db_out))
     has_postfix = "postfix" in extract_stdout(ev, "svc-running", "").lower()
     has_vpn = "strongswan" in extract_stdout(ev, "svc-running", "").lower()
+    # Web / TLS / HTTP
+    has_web = ("PRESENT:apache2" in extract_stdout(ev, "sys-detected", "") or
+               "PRESENT:httpd" in extract_stdout(ev, "sys-detected", "") or
+               "PRESENT:nginx" in extract_stdout(ev, "sys-detected", "") or
+               "PRESENT:http_server" in extract_stdout(ev, "sys-detected", ""))
+    has_tls = "PRESENT:letsencrypt" in extract_stdout(ev, "sys-detected", "") or has_web
+    # DNS
+    has_dns = ("PRESENT:systemd-resolved" in extract_stdout(ev, "sys-detected", "") or
+               "PRESENT:resolvectl" in extract_stdout(ev, "sys-detected", "") or
+               "PRESENT:bind9" in extract_stdout(ev, "sys-detected", "") or
+               "PRESENT:dnsmasq" in extract_stdout(ev, "sys-detected", "") or
+               "PRESENT:unbound" in extract_stdout(ev, "sys-detected", ""))
+    # Firewall
+    has_fw = ("PRESENT:ufw" in extract_stdout(ev, "sys-detected", "") or
+              "PRESENT:iptables" in extract_stdout(ev, "sys-detected", "") or
+              "PRESENT:nftables" in extract_stdout(ev, "sys-detected", "") or
+              "PRESENT:firewalld" in extract_stdout(ev, "sys-detected", "") or
+              "PRESENT:firewall-cmd" in extract_stdout(ev, "sys-detected", ""))
+    # DB tuning
+    has_db_tuning = ("PRESENT:postgresql_socket" in extract_stdout(ev, "sys-detected", "") or
+                     "PRESENT:mysql_socket" in extract_stdout(ev, "sys-detected", "") or
+                     "PRESENT:psql" in extract_stdout(ev, "sys-detected", "") or
+                     "PRESENT:mysql" in extract_stdout(ev, "sys-detected", ""))
+    # SSH hardening
+    has_ssh_hardening = ("PRESENT:fail2ban" in extract_stdout(ev, "sys-detected", "") or
+                         "PRESENT:ssh" in extract_stdout(ev, "sys-detected", ""))
     return {
         "docker": has_docker,
         "kubernetes": has_k8s,
@@ -122,6 +148,12 @@ def detect_components(evidence):
         "database": has_db,
         "postfix": has_postfix,
         "vpn": has_vpn,
+        "web": has_web,
+        "tls": has_tls,
+        "dns": has_dns,
+        "firewall": has_fw,
+        "db_tuning": has_db_tuning,
+        "ssh_hardening": has_ssh_hardening,
     }
 
 def build_nav(sections):
@@ -257,6 +289,71 @@ def parse_running_services(evidence):
                 svcs.append(parts[0].replace(".service",""))
     return svcs
 
+# --- New parsing functions for web / TLS / HTTP / DNS / Firewall / DB tuning / SSH hardening ---
+
+def parse_web_server(evidence):
+    out = extract_stdout(evidence, "web-vhosts")
+    vhosts = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if line.startswith("VHOST:") or "ServerName" in line or "ProxyPass" in line:
+            vhosts.append(line)
+    return vhosts[:30]
+
+def parse_tls_certs(evidence):
+    out = extract_stdout(evidence, "tls-expiry")
+    certs = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if line and ("|" in line or "expires=" in line or "issuer=" in line or "SAN:" in line):
+            certs.append(line)
+    return certs[:20]
+
+def parse_http_health(evidence):
+    out = extract_stdout(evidence, "http-status")
+    checks = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if line and ("->" in line or "internal=" in line or "external=" in line):
+            checks.append(line)
+    return checks[:30]
+
+def parse_dns(evidence):
+    out = extract_stdout(evidence, "dns-resolver")
+    dns = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if line and ("PRESENT:" in line or "resolver" in line.lower() or "dnssec" in line.lower() or "split" in line.lower() or "container" in line.lower()):
+            dns.append(line)
+    return dns[:20]
+
+def parse_firewall(evidence):
+    out = extract_stdout(evidence, "firewall-backend")
+    fw = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if line and ("BACKEND" in line or "RULE" in line or "POLICY" in line or "EXPOSED" in line or "LOG" in line or "FAIL2BAN" in line):
+            fw.append(line)
+    return fw[:20]
+
+def parse_db_tuning(evidence):
+    out = extract_stdout(evidence, "db-tuning")
+    dt = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if line and ("==" in line or "HIT" in line or "VACUUM" in line or "SLOW" in line or "INDEX" in line or "BUFFER" in line):
+            dt.append(line)
+    return dt[:20]
+
+def parse_ssh_hardening(evidence):
+    out = extract_stdout(evidence, "ssh-hardening")
+    sh = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if line and ("===" in line or "PermitRoot" in line or "PasswordAuth" in line or "fail2ban" in line.lower() or "JAIL" in line or "AUTHORIZED" in line or "KEY" in line):
+            sh.append(line)
+    return sh[:20]
+
 def parse_meminfo(evidence):
     out = extract_stdout(evidence, "mem-current")
     info = {}
@@ -305,6 +402,14 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     services = parse_running_services(evidence)
     mem = parse_meminfo(evidence)
     journal = parse_journal_errors(evidence)
+    # New parsers
+    web_vhosts = parse_web_server(evidence)
+    tls_certs = parse_tls_certs(evidence)
+    http_checks = parse_http_health(evidence)
+    dns_info = parse_dns(evidence)
+    firewall_info = parse_firewall(evidence)
+    db_tuning_info = parse_db_tuning(evidence)
+    ssh_hardening_info = parse_ssh_hardening(evidence)
 
     # Build sections list dynamically
     sections = []
@@ -425,6 +530,93 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         network_html += kv_row("iptables default", "INPUT ACCEPT")
         network_html += '</div>'
 
+    # --- NEW: Web Server section ---
+    web_html = ""
+    if comp["web"]:
+        sections.append(("web-server", "Servidor Web"))
+        web_html = '<div class="card"><h4>Servidor Web / Reverse Proxy</h4>'
+        if web_vhosts:
+            web_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(web_vhosts)} vhosts/proxy mappings</p>'
+            for v in web_vhosts[:20]:
+                web_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(v)}</div>'
+        else:
+            web_html += '<p class="section-empty">Sin vhosts / proxy mappings detectados</p>'
+        web_html += '</div>'
+
+    # --- NEW: TLS section ---
+    tls_html = ""
+    if comp["tls"]:
+        sections.append(("tls", "TLS / Certificados"))
+        tls_html = '<div class="card"><h4>Certificados TLS</h4>'
+        if tls_certs:
+            tls_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(tls_certs)} certificados</p>'
+            for c in tls_certs[:15]:
+                tls_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(c)}</div>'
+        else:
+            tls_html += '<p class="section-empty">Sin certificados detectados</p>'
+        tls_html += '</div>'
+
+    # --- NEW: HTTP Health section ---
+    http_html = ""
+    if comp["web"]:
+        sections.append(("http-health", "Salud HTTP"))
+        http_html = '<div class="card"><h4>Salud HTTP / Endpoints</h4>'
+        if http_checks:
+            http_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(http_checks)} endpoints</p>'
+            for h in http_checks[:20]:
+                http_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(h)}</div>'
+        else:
+            http_html += '<p class="section-empty">Sin checks HTTP</p>'
+        http_html += '</div>'
+
+    # --- NEW: DNS section ---
+    dns_html = ""
+    if comp["dns"]:
+        sections.append(("dns", "DNS"))
+        dns_html = '<div class="card"><h4>DNS / Resolución</h4>'
+        if dns_info:
+            for d in dns_info[:20]:
+                dns_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(d)}</div>'
+        else:
+            dns_html += '<p class="section-empty">Sin info DNS detallada</p>'
+        dns_html += '</div>'
+
+    # --- NEW: Firewall deep-dive section ---
+    fw_deep_html = ""
+    if comp["firewall"]:
+        sections.append(("firewall-deep", "Firewall (detalle)"))
+        fw_deep_html = '<div class="card"><h4>Firewall (detalle)</h4>'
+        if firewall_info:
+            for f in firewall_info[:25]:
+                fw_deep_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(f)}</div>'
+        else:
+            fw_deep_html += '<p class="section-empty">Sin reglas de firewall detectadas</p>'
+        fw_deep_html += '</div>'
+
+    # --- NEW: DB Tuning section ---
+    db_tuning_html = ""
+    if comp["db_tuning"]:
+        sections.append(("db-tuning", "DB Tuning"))
+        db_tuning_html = '<div class="card"><h4>Ajuste de Base de Datos</h4>'
+        if db_tuning_info:
+            for d in db_tuning_info[:20]:
+                db_tuning_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(d)}</div>'
+        else:
+            db_tuning_html += '<p class="section-empty">Sin métricas de tuning</p>'
+        db_tuning_html += '</div>'
+
+    # --- NEW: SSH Hardening section ---
+    ssh_hardening_html = ""
+    if comp["ssh_hardening"]:
+        sections.append(("ssh-hardening", "SSH Hardening"))
+        ssh_hardening_html = '<div class="card"><h4>SSH Hardening / fail2ban</h4>'
+        if ssh_hardening_info:
+            for s in ssh_hardening_info[:25]:
+                ssh_hardening_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(s)}</div>'
+        else:
+            ssh_hardening_html += '<p class="section-empty">Sin info de hardening SSH</p>'
+        ssh_hardening_html += '</div>'
+
     # Security section
     sections.append(("security", "Seguridad"))
     sec_html = '<div class="cards">'
@@ -520,14 +712,22 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 <pre>{cesc(cpu_lines)}</pre>
 
 <h2 id="containers">Contenedores</h2>
-{docker_html}
+    {docker_html}
 
-<h2 id="network">Red</h2>
-<div class="cards">
-{network_html}
-</div>
+    <h2 id="network">Red</h2>
+    <div class="cards">
+    {network_html}
+    </div>
 
-<h2 id="security">Seguridad</h2>
+    {web_html}
+    {tls_html}
+    {http_html}
+    {dns_html}
+    {fw_deep_html}
+    {db_tuning_html}
+    {ssh_hardening_html}
+
+    <h2 id="security">Seguridad</h2>
 {sec_html}
 
 <h2 id="logs">Logs</h2>

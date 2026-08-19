@@ -1,5 +1,5 @@
 version: "2.1"
-generated: "2026-08-10"
+generated: "2026-08-19"
 
 skills:
   # Discovery phase
@@ -76,6 +76,27 @@ skills:
     depends_on: ["system_inventory"]
     provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections"]
 
+  # Network deep-dive (conditional)
+  - id: "dns_analysis"
+    file: "network/dns-analysis.md"
+    category: "network"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    triggers: ["PRESENT:systemd-resolved", "PRESENT:resolvectl", "PRESENT:bind9", "PRESENT:dnsmasq", "PRESENT:unbound"]
+    provides: ["dns_resolver", "dns_forwarding", "dns_cache", "dns_split", "dnssec", "dns_over_tls", "per_interface_dns"]
+
+  - id: "firewall_analysis"
+    file: "network/firewall-analysis.md"
+    category: "network"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    triggers: ["PRESENT:ufw", "PRESENT:iptables", "PRESENT:nftables", "PRESENT:firewalld", "PRESENT:firewall-cmd"]
+    provides: ["firewall_backend", "firewall_rules", "default_policies", "open_ports_exposed", "logging", "fail2ban_integration"]
+
   # Web server / TLS / HTTP (conditional — triggers on detected web server or certs)
   - id: "web_server_analysis"
     file: "platform/web-server-analysis.md"
@@ -127,6 +148,7 @@ skills:
     depends_on: ["docker_analysis", "docker_troubleshooting"]
     triggers: ["PRESENT:docker"]
     provides: ["container_error_logs", "container_crash_logs", "container_api_errors"]
+
   - id: "docker_analysis"
     file: "platform/docker-analysis.md"
     category: "docker"
@@ -177,6 +199,17 @@ skills:
     triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:redis_socket", "PRESENT:psql", "PRESENT:mysql", "PRESENT:redis-cli", "PRESENT:mongod", "PRESENT:db_config"]
     provides: ["db_engine", "db_connections", "db_size", "db_settings", "db_location"]
 
+  # Database tuning (conditional — deeper optimization)
+  - id: "db_tuning_analysis"
+    file: "platform/db-tuning-analysis.md"
+    category: "database"
+    phase: "optimize"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["database_analysis"]
+    triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:psql", "PRESENT:mysql"]
+    provides: ["pg_settings", "pg_buffers", "pg_connections", "pg_wal", "my_cnf", "innodb_buffer", "my_connections", "slow_queries", "index_usage", "vacuum_status"]
+
   # Security
   - id: "security_analysis"
     file: "security/security-analysis.md"
@@ -186,6 +219,17 @@ skills:
     execution_mode: "auto"
     depends_on: ["system_inventory", "process_analysis", "network_analysis"]
     provides: ["ssh_posture", "privileged_processes", "suspicious_processes", "suspicious_connections", "persistence_indicators"]
+
+  # SSH hardening + fail2ban (conditional)
+  - id: "ssh_hardening_analysis"
+    file: "security/ssh-hardening-analysis.md"
+    category: "security"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "systemd_analysis", "network_analysis"]
+    triggers: ["PRESENT:fail2ban", "PRESENT:ssh"]
+    provides: ["sshd_config", "fail2ban_jails", "ban_stats", "ssh_auth", "authorized_keys", "ssh_exposure", "hostkeys"]
 
   # Configuration / Logs
   - id: "configuration_analysis"
@@ -206,7 +250,7 @@ skills:
     depends_on: ["system_inventory", "disk_analysis"]
     provides: ["journal_errors", "oom_in_logs", "disk_errors", "log_disk_usage"]
 
-  # Reliability / Observability / Backup (conditional on K8s)
+  # Reliability / Observability / Backup (no longer K8s-only)
   - id: "reliability_analysis"
     file: "reliability/reliability-analysis.md"
     category: "reliability"
@@ -279,6 +323,8 @@ workflows:
       - "io_analysis"
       - "process_analysis"
       - "network_analysis"
+      - "dns_analysis"
+      - "firewall_analysis"
       - "web_server_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
@@ -289,9 +335,11 @@ workflows:
       - "ingress_nginx_analysis"
       - "traefik_analysis"
       - "database_analysis"
+      - "db_tuning_analysis"
       - "configuration_analysis"
       - "log_analysis"
       - "security_analysis"
+      - "ssh_hardening_analysis"
       - "reliability_analysis"
       - "observability_analysis"
       - "backup_analysis"
@@ -300,7 +348,7 @@ workflows:
       - "migration_assessment"
 
   quick:
-    description: "Triage rapido de salud (inventario + systemd + CPU/mem/disk/io + red + web/TLS + logs + seguridad)"
+    description: "Triage rapido de salud (inventario + systemd + CPU/mem/disk/io + red + DNS/firewall + web/TLS + logs + seguridad)"
     sequence:
       - "system_inventory"
       - "systemd_analysis"
@@ -309,11 +357,14 @@ workflows:
       - "disk_analysis"
       - "io_analysis"
       - "network_analysis"
+      - "dns_analysis"
+      - "firewall_analysis"
       - "web_server_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
       - "log_analysis"
       - "security_analysis"
+      - "ssh_hardening_analysis"
       - "capacity_analysis"
 
   discovery:
@@ -336,10 +387,13 @@ workflows:
       - "observability_analysis"
       - "process_analysis"
       - "network_analysis"
+      - "dns_analysis"
+      - "firewall_analysis"
       - "web_server_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
       - "capacity_analysis"
+      - "ssh_hardening_analysis"
 
   security:
     description: "Auditoria de seguridad completa"
@@ -348,6 +402,9 @@ workflows:
       - "systemd_analysis"
       - "process_analysis"
       - "network_analysis"
+      - "dns_analysis"
+      - "firewall_analysis"
       - "security_analysis"
+      - "ssh_hardening_analysis"
       - "configuration_analysis"
       - "log_analysis"

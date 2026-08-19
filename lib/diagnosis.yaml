@@ -1,0 +1,282 @@
+version: "1.0"
+# ---------------------------------------------------------------------------
+# Symptom-driven diagnosis map.
+#
+# The agent reads this file when the operator reports a *symptom* ("el sitio
+# da 502", "el disco se llenó", "un contenedor se reinicia solo") and needs to
+# go from symptom -> ranked hypotheses -> evidence -> root cause -> remediation.
+#
+# This file is DATA, not code. Adding a new symptom is a YAML edit, no Python
+# changes. Each hypothesis references real skills (skills/_index.yaml) and the
+# evidence keys they produce, so the diagnosis stays evidence-first and the
+# skills stay the single source of truth for *how* to collect that evidence.
+# ---------------------------------------------------------------------------
+
+symptoms:
+  - id: "http_5xx"
+    label: "Sitio responde 500 / 502 / 503 / 504"
+    order:
+      - "502_bad_gateway"
+      - "503_service_unavailable"
+      - "504_gateway_timeout"
+      - "500_internal_error"
+
+  - id: "cert_error"
+    label: "Error de certificado / TLS en el navegador"
+    order:
+      - "cert_expired"
+      - "cert_mismatch"
+
+  - id: "site_down"
+    label: "Sitio caído / connection refused / timeout"
+    order:
+      - "service_down"
+      - "container_down"
+      - "port_not_listening"
+
+  - id: "disk_full"
+    label: "Disco lleno / escritura falla"
+    order: ["disk_full"]
+
+  - id: "oom"
+    label: "Proceso muerto / matado / memoria agotada"
+    order: ["oom_kill"]
+
+  - id: "high_load"
+    label: "CPU / load alto, lentitud general"
+    order: ["runaway_process"]
+
+  - id: "slow"
+    label: "Respuestas lentas"
+    order: ["slow_backend", "slow_db"]
+
+  - id: "db_error"
+    label: "Fallo de conexión a base de datos"
+    order: ["db_unreachable"]
+
+  - id: "crash_loop"
+    label: "Contenedor en crash loop / reinicios"
+    order: ["crash_loop"]
+
+  - id: "dns_error"
+    label: "Errores DNS (EAI_AGAIN / ENOTFOUND)"
+    order: ["dns_failure"]
+
+  - id: "log_flood"
+    label: "Logs creciendo sin control / disco por logs"
+    order: ["log_growth"]
+
+  - id: "backup_gap"
+    label: "Sospecha de backups inexistentes / no probados"
+    order: ["backup_missing"]
+
+hypotheses:
+  502_bad_gateway:
+    label: "502 Bad Gateway"
+    checks:
+      - name: "Upstream backend caído o no escuchando"
+        how: >
+          El proxy (Apache/nginx) llegó al upstream pero no obtuvo respuesta válida.
+          El contenedor puede estar 'up' pero su proceso de app muerto.
+        evidence: ["web_server_analysis.upstream_health", "web_server_analysis.proxy_upstream_map"]
+        confirm: "curl -s -o /dev/null -w '%{http_code}' http://<upstream-host>:<port>/  -> 000/refused"
+        skills: ["web_server_analysis", "docker_troubleshooting", "container_log_analysis", "log_analysis"]
+        remediation: "Levantar el backend (Level 3: reiniciar servicio/contenedor) y eliminar pid obsoleto si aplica."
+      - name: "Proxy apunta a host/puerto equivocado"
+        how: "Config drift entre el vhost (ProxyPass) y el puerto real donde escucha la app."
+        evidence: ["web_server_analysis.proxy_upstream_map", "network_analysis.port_process_map"]
+        confirm: "Comparar ProxyPass target vs ss -tlnp y docker port."
+        skills: ["web_server_analysis", "network_analysis"]
+        remediation: "Corregir la directiva ProxyPass/proxy_pass al puerto correcto (Level 3)."
+      - name: "Upstream muere al recibir la petición (OOM/segfault)"
+        how: "El backend responde a ping pero crashea al procesar (memoria, DB lenta)."
+        evidence: ["log_analysis.oom_in_logs", "container_log_analysis.container_crash_logs"]
+        confirm: "dmesg | grep -i oom; docker inspect OOMKilled."
+        skills: ["log_analysis", "docker_troubleshooting"]
+        remediation: "Reducir consumo de memoria / habilitar swap / subir RAM (Level 3)."
+
+  503_service_unavailable:
+    label: "503 Service Unavailable"
+    checks:
+      - name: "Sin backends sanos / workers agotados"
+        how: "Todos los workers ocupados o el pool de backend vacío."
+        evidence: ["web_server_analysis.upstream_health"]
+        confirm: "Logs del proxy muestran 'no live upstreams' / max_children alcanzado."
+        skills: ["web_server_analysis", "log_analysis"]
+        remediation: "Escalar workers/backends o revisar por qué están saturados."
+      - name: "Mantenimiento o app en arranque"
+        how: "La app devuelve 503 explícito (maintenance mode, migraciones en curso)."
+        evidence: ["http_health_analysis.endpoint_status"]
+        confirm: "Revisar la respuesta de la app directamente."
+        skills: ["http_health_analysis"]
+        remediation: "Esperar fin de mantenimiento / completar migraciones."
+
+  504_gateway_timeout:
+    label: "504 Gateway Timeout"
+    checks:
+      - name: "Backend lento / colgado (DB lenta, N+1, deadlock)"
+        how: "El upstream aceptó pero no respondió a tiempo."
+        evidence: ["http_health_analysis.response_times", "capacity_analysis.headroom"]
+        confirm: "curl -w '%{time_total}' al backend directo; revisar slow query log."
+        skills: ["http_health_analysis", "capacity_analysis", "log_analysis"]
+        remediation: "Optimizar consultas / índice / timeout del proxy (Level 3)."
+
+  500_internal_error:
+    label: "500 Internal Server Error"
+    checks:
+      - name: "Error de aplicación (stack trace en logs)"
+        how: "Excepción no capturada en el framework (Rails/Django/Node)."
+        evidence: ["log_analysis.journal_errors", "container_log_analysis.container_error_logs"]
+        confirm: "tail del log de la app: stack trace / excepción."
+        skills: ["log_analysis", "container_log_analysis"]
+        remediation: "Corregir el bug; puede requerir deploy (Level 3)."
+
+  cert_expired:
+    label: "Certificado expirado"
+    checks:
+      - name: "Certificado vencido o por vencer"
+        how: "La fecha de expiración ya pasó o está a <30 días sin auto-renovación."
+        evidence: ["tls_certificate_analysis.cert_expiry"]
+        confirm: "openssl x509 -enddate -noout -in fullchain.pem."
+        skills: ["tls_certificate_analysis", "backup_analysis"]
+        remediation: "Ejecutar renovación (certbot renew) y verificar el timer de auto-renovación."
+
+  cert_mismatch:
+    label: "Certificado no coincide con el dominio"
+    checks:
+      - name: "SAN no contiene el ServerName"
+        how: "El vhost usa un dominio que no está en el SAN del certificado."
+        evidence: ["tls_certificate_analysis.cert_sans", "tls_certificate_analysis.cert_host_match"]
+        confirm: "Comparar ServerName vs SAN list."
+        skills: ["tls_certificate_analysis", "web_server_analysis"]
+        remediation: "Re-emitir certificado para el dominio correcto."
+
+  service_down:
+    label: "Servicio systemd caído"
+    checks:
+      - name: "Unidad en estado failed/inactive"
+        how: "El servicio que expone el puerto no está corriendo."
+        evidence: ["systemd_analysis.services_failed", "reliability_analysis.recovery_mechanisms"]
+        confirm: "systemctl status <unit>."
+        skills: ["systemd_analysis", "reliability_analysis"]
+        remediation: "Arrancar el servicio y configurar Restart=on-failure (Level 3)."
+
+  container_down:
+    label: "Contenedor detenido / sin proceso"
+    checks:
+      - name: "Contenedor exited o app interna muerta"
+        how: "El contenedor puede estar 'running' con el proceso interno muerto."
+        evidence: ["docker_troubleshooting.container_exit_codes", "docker_analysis.containers"]
+        confirm: "docker ps -a (estado) + curl al container-IP:puerto."
+        skills: ["docker_analysis", "docker_troubleshooting", "container_log_analysis"]
+        remediation: "docker start / compose up y revisar por qué murió (exit code)."
+
+  port_not_listening:
+    label: "Nada escuchando en el puerto esperado"
+    checks:
+      - name: "Binding en interface/puerto incorrecto"
+        how: "La app escucha en 127.0.0.1 o en otro puerto, no donde el proxy espera."
+        evidence: ["network_analysis.open_ports", "network_analysis.port_process_map"]
+        confirm: "ss -tlnp | grep <puerto>."
+        skills: ["network_analysis", "web_server_analysis"]
+        remediation: "Ajustar bind de la app al puerto/interface correctos."
+
+  disk_full:
+    label: "Disco lleno"
+    checks:
+      - name: "Partición al 100% / inodes agotados"
+        how: "Sin espacio, las apps fallan al escribir (DB, logs, sesiones)."
+        evidence: ["disk_analysis.fs_usage", "disk_analysis.inodes", "disk_analysis.large_dirs"]
+        confirm: "df -h; du -x / | sort -h | tail."
+        skills: ["disk_analysis", "observability_analysis"]
+        remediation: "Rotar/limpiar logs y artefactos viejos; ampliar disco (Level 3)."
+
+  oom_kill:
+    label: "Proceso matado por OOM"
+    checks:
+      - name: "Kernel OOM-killer mató un proceso"
+        how: "Sin swap + varios procesos grandes, el kernel mata uno para sobrevivir."
+        evidence: ["log_analysis.oom_in_logs", "memory_analysis.swap", "reliability_analysis.spof_list"]
+        confirm: "dmesg | grep -i 'killed process'; free -h (sin swap)."
+        skills: ["log_analysis", "memory_analysis", "reliability_analysis"]
+        remediation: "Habilitar swap, limitar memoria de contenedores, subir RAM (Level 3)."
+
+  runaway_process:
+    label: "Proceso consumiendo CPU"
+    checks:
+      - name: "Bucle infinito / proceso runaway"
+        how: "Un proceso acapara CPU y degrada al resto."
+        evidence: ["cpu_analysis.cpu_per_process", "process_analysis.top_cpu_processes"]
+        confirm: "top/ps ordenado por %CPU sostenido."
+        skills: ["cpu_analysis", "process_analysis"]
+        remediation: "Investigar el proceso; reiniciar si corresponde (Level 3)."
+
+  slow_backend:
+    label: "Backend lento"
+    checks:
+      - name: "Respuesta lenta de la app (no de red)"
+        how: "time_total alto en el backend directo."
+        evidence: ["http_health_analysis.response_times", "capacity_analysis.headroom"]
+        confirm: "curl -w '%{time_total}' al backend directo vs proxy."
+        skills: ["http_health_analysis", "capacity_analysis", "log_analysis"]
+        remediation: "Optimizar app / escalar recursos / cache (Level 3)."
+
+  slow_db:
+    label: "Base de datos lenta"
+    checks:
+      - name: "Queries lentas / sin índices / conexiones saturadas"
+        how: "La DB es el cuello de botella."
+        evidence: ["database_analysis.db_connections", "database_analysis.db_settings"]
+        confirm: "Slow query log / pg_stat_activity."
+        skills: ["database_analysis", "capacity_analysis"]
+        remediation: "Indexar / optimizar queries / pooling."
+
+  db_unreachable:
+    label: "Base de datos inalcanzable"
+    checks:
+      - name: "DB remota caída / red / credenciales"
+        how: "La app apunta a una DB fuera del host que no responde."
+        evidence: ["database_analysis.db_location", "database_analysis.db_connections"]
+        confirm: "test TCP al host:puerto de la DB."
+        skills: ["database_analysis", "network_analysis"]
+        remediation: "Restaurar conectividad o la DB remota."
+
+  crash_loop:
+    label: "Contenedor en crash loop"
+    checks:
+      - name: "Exit code no-cero recurrente / OOM / app error"
+        how: "El contenedor arranca y muere en bucle."
+        evidence: ["docker_troubleshooting.container_exit_codes", "container_log_analysis.container_crash_logs"]
+        confirm: "docker ps (RestartCount) + docker logs <c>."
+        skills: ["docker_troubleshooting", "container_log_analysis"]
+        remediation: "Corregir la causa (config, migraciones, dependencias) y relanzar."
+
+  dns_failure:
+    label: "Fallo de resolución DNS"
+    checks:
+      - name: "Nameserver inalcanzable / resolv.conf roto"
+        how: "EAI_AGAIN / ENOTFOUND en la app o contenedores."
+        evidence: ["docker_troubleshooting.container_dns_config", "network_analysis.dns"]
+        confirm: "nslookup desde host y desde el contenedor."
+        skills: ["docker_troubleshooting", "network_analysis"]
+        remediation: "Corregir /etc/resolv.conf o el DNS de Docker (Level 3)."
+
+  log_growth:
+    label: "Crecimiento descontrolado de logs"
+    checks:
+      - name: "Log sin rotación llenando disco"
+        how: "Un log (app/log de contenedor) crece sin límite."
+        evidence: ["observability_analysis.log_rotation", "disk_analysis.large_dirs"]
+        confirm: "find /var/log -size +500M."
+        skills: ["observability_analysis", "disk_analysis"]
+        remediation: "Configurar logrotate / max-size de logs de Docker (Level 3)."
+
+  backup_missing:
+    label: "Backups inexistentes o no probados"
+    checks:
+      - name: "Sin mecanismo de backup para datos persistentes"
+        how: "Datos (DB, uploads) sin respaldo o sin restore probado."
+        evidence: ["backup_analysis.backup_mechanisms", "backup_analysis.restore_readiness"]
+        confirm: "Verificar cron/timer de backup y artefacto reciente."
+        skills: ["backup_analysis"]
+        remediation: "Implementar backups + test de restauración (Level 3)."

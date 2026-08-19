@@ -32,6 +32,14 @@ See `SAFETY.md`.
 3. The agent follows `workflows/infrastructure-audit.md`, executing skills, writing evidence into `reportes/<run-id>/`, and producing `reportes/<run-id>/informe-<run-id>.html`.
 4. The agent prints an executive summary to the console and the report path.
 
+## How to run a diagnosis (operator)
+
+If you are reporting a **symptom** (not asking for a full audit) — e.g. "el sitio da 502",
+"el disco se llenó", "un contenedor se reinicia solo" — the agent follows
+`workflows/incident-triage.md` and reads `lib/diagnosis.yaml` (symptom -> hypotheses ->
+evidence -> skills). It runs only the skills needed to find the root cause and the
+remediation, and it never fixes anything without Level 3 approval.
+
 ## How to run an audit (the agent — read this before starting)
 
 When invoked, follow this loop (full spec in `workflows/infrastructure-audit.md`):
@@ -66,7 +74,7 @@ infrastructure-expert/
 ├── .gitignore             <- excludes config/target.json, reportes/
 ├── config/                <- target.json (gitignored), target.example.json
 ├── scripts/               <- SSH wrapper, redaction, report generator
-├── lib/                   <- shared helpers (severity matrix)
+├── lib/                   <- shared helpers (severity matrix, symptom->diagnosis map)
 ├── skills/                <- one folder per capability; SKILL.md each
 │   ├── _index.yaml        <- master catalog
 │   ├── _schema.yaml       <- skill contract
@@ -81,7 +89,7 @@ infrastructure-expert/
 │   ├── observability/     <- monitoring stack health
 │   ├── backup/            <- backup mechanisms detection
 │   └── migration/         <- A->B migration assessment
-├── workflows/             <- entry points per mode
+├── workflows/             <- entry points: audit (por modo) + incident triage
 ├── templates/             <- report templates
 └── reportes/              <- scan data + reports (gitignored)
 ```

@@ -27,6 +27,18 @@ def read_evidence(run_dir):
                 evidence[key] = {}
     return evidence
 
+def load_skill_catalog():
+    """Read skills/_index.yaml -> (total, conditional_ids, all_ids). Data-driven."""
+    idx_path = os.path.join(REPO, "skills", "_index.yaml")
+    try:
+        idx = load_yaml(idx_path)
+    except Exception:
+        return 0, [], []
+    skills = idx.get("skills", []) if isinstance(idx, dict) else []
+    all_ids = [s.get("id", "") for s in skills]
+    conditional = [s.get("id", "") for s in skills if s.get("triggers")]
+    return len(all_ids), conditional, all_ids
+
 def extract_stdout(evidence, key, default=""):
     e = evidence.get(key, {})
     return e.get("stdout", default).strip()
@@ -270,6 +282,9 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     evidence = read_evidence(run_dir)
     comp = detect_components(evidence)
+    n_skills, conditional_skills, all_skill_ids = load_skill_catalog()
+    # Skills "ejecutados" = todos; los condicionales se ejecutan solo si su trigger se cumple.
+    skills_exec = ", ".join(all_skill_ids) if all_skill_ids else "desconocido"
 
     host = "unknown"
     if inventory:
@@ -492,7 +507,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 <span class="low">LOW: {f_by_sev['LOW']}</span>
 <span class="info">INFO: {f_by_sev['INFO']}</span>
 </div>
-<p style="font-size:12px;color:var(--muted);margin-top:8px">Skills ejecutados: system_inventory, systemd_analysis, cpu_analysis, memory_analysis, disk_analysis, io_analysis, process_analysis, network_analysis, docker_analysis, security_analysis, configuration_analysis, log_analysis, capacity_analysis, optimization_analysis, migration_assessment. Saltados por condicionales: kubernetes_analysis, ingress_nginx_analysis, traefik_analysis, database_analysis, reliability_analysis, observability_analysis, backup_analysis.</p>
+<p style="font-size:12px;color:var(--muted);margin-top:8px">Skills ejecutados: {skills_exec}</p>
 
 <h2 id="infra-overview">Infraestructura</h2>
 {infra_html}
@@ -550,10 +565,11 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 </div>\n'''
 
     ev_count = len(glob.glob(os.path.join(run_dir, "evidencia", "*.yml")))
+    conditional = ", ".join(conditional_skills) if conditional_skills else "ninguno"
     html += f'''
 <h2 id="evidence">Evidencia</h2>
 <p style="color:var(--muted);font-size:12px">{ev_count} archivos YAML de evidencia almacenados en <code>reportes/{run_id}/evidencia/</code></p>
-<p style="color:var(--muted);font-size:12px">Skills saltados por no cumplir condiciones: kubernetes_analysis, ingress_nginx_analysis, traefik_analysis, database_analysis, reliability_analysis, observability_analysis, backup_analysis (Kubernetes no detectado, sockets DB no presentes en host).</p>
+<p style="color:var(--muted);font-size:12px">Skills condicionales (se ejecutan solo si se detecta su trigger): {conditional}</p>
 </main>{JS}</body></html>'''
 
     return html

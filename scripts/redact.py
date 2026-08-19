@@ -24,17 +24,35 @@ data = re.sub(r"([a-z][a-z0-9+.\-]*://[^:@/\s~]+:)([^@/\s]+)(@)",
 data = re.sub(r"(authorization:\s*bearer\s+)[A-Za-z0-9._\-]+",
               r"\1<<REDACTED:BEARER>>", data, flags=re.I)
 
-_SECRET_WORDS = r"(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|access[_-]?token|client[_-]?secret|private[_-]?key|auth)"
+# Secret words that must stand alone (not a prefix of a normal word).
+# "auth" is intentionally NOT here: matching it would redact "authorization",
+# "authenticated", etc. It is still matched below only as a whole key.
+_STANDALONE = r"password|passwd|pwd|secret|token|auth"
+# Compound secret tokens: may appear embedded in a longer identifier
+# (e.g. GOOGLE_MAPS_API_KEY, client_secret, S3_ACCESS_KEY_ID).
+_COMPOUND = r"api[_-]?key|access[_-]?key|access[_-]?token|client[_-]?secret|private[_-]?key"
+
+# A secret key is an identifier token that (a) contains a compound secret token,
+# or (b) contains a standalone secret word delimited from adjacent letters/digits.
+# This catches both `password=...` and `SMTP_PASSWORD=...` / `DB_PASSWORD=...`.
 _kv = re.compile(
-    r'((?:^|[\s,;{(\[])(?:["\']?)' + _SECRET_WORDS + r'(?:["\']?)' +
-    r'(?:["\']?\s*[=:]\s*))' +
-    r'("([^"]*)"|\'([^\']*)\'|([^\s,"\']+))',
+    r'(?<![A-Za-z0-9])'
+    r'(?P<key>[A-Za-z0-9_.\-]*?'
+    r'(?:(?:' + _STANDALONE + r')(?![A-Za-z0-9])'
+    r'|(?:' + _COMPOUND + r')(?![A-Za-z0-9]))'
+    r'[A-Za-z0-9_.\-]*?)'
+    r'(?P<eq>\s*[=:]\s*)'
+    r'(?P<val>"[^"]*"|\'[^\']*\'|[^\s,"\'`]+)',
     re.I)
 def _kv_repl(m):
-    pre = m.group(1)
-    if m.group(3) is not None:   return pre + '"<<REDACTED:SECRET>>"'
-    if m.group(4) is not None:   return pre + "'<<REDACTED:SECRET>>'"
-    return pre + "<<REDACTED:SECRET>>"
+    key = m.group("key")
+    eq = m.group("eq")
+    val = m.group("val")
+    if val[:1] == '"' and val[-1:] == '"':
+        return key + eq + '"<<REDACTED:SECRET>>"'
+    if val[:1] == "'" and val[-1:] == "'":
+        return key + eq + "'<<REDACTED:SECRET>>'"
+    return key + eq + "<<REDACTED:SECRET>>"
 data = _kv.sub(_kv_repl, data)
 
 _md = {"apiVersion","kind","metadata","name","namespace","creationTimestamp","type",

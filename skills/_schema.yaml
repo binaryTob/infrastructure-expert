@@ -38,11 +38,11 @@ execution_modes:
   manual: "no automatizable, requiere intervencion humana"
 
 severity_levels:
-  P0: "Critical — puede causar caida, perdida de datos, indisponibilidad"
-  P1: "High — problema importante, resolverse pronto"
-  P2: "Medium — optimizacion recomendable"
-  P3: "Low — mejora menor o de conveniencia"
-  P4: "Informational — observacion sin accion inmediata"
+  CRITICAL: "puede causar caida, perdida de datos, indisponibilidad"
+  HIGH: "problema importante, resolverse pronto"
+  MEDIUM: "optimizacion recomendable o gap de buenas practicas"
+  LOW: "mejora menor o de conveniencia"
+  INFO: "observacion sin accion inmediata"
 
 confidence_levels:
   HIGH: "evidencia directa y reproducible"
@@ -71,7 +71,7 @@ output_schema:
       items:
         type: object
         properties:
-          severity: { type: string, enum: [P0, P1, P2, P3, P4] }
+          severity: { type: string, enum: [CRITICAL, HIGH, MEDIUM, LOW, INFO] }
           category: { type: string }
           confidence: { type: string, enum: [HIGH, MEDIUM, LOW, INSUFFICIENT_DATA] }
           observation: { type: string }

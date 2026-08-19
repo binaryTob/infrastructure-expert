@@ -76,7 +76,26 @@ skills:
     depends_on: ["system_inventory"]
     provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections"]
 
-  # Platform discovery (conditional)
+  # Platform discovery (conditional): Docker deep troubleshooting
+  - id: "docker_troubleshooting"
+    file: "platform/docker-troubleshooting.md"
+    category: "docker"
+    phase: "diagnose"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["docker_analysis"]
+    triggers: ["PRESENT:docker"]
+    provides: ["container_exit_codes", "container_health_status", "container_restart_policies", "container_dns_config", "docker_events_detail"]
+
+  - id: "container_log_analysis"
+    file: "platform/container-log-analysis.md"
+    category: "docker"
+    phase: "diagnose"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["docker_analysis", "docker_troubleshooting"]
+    triggers: ["PRESENT:docker"]
+    provides: ["container_error_logs", "container_crash_logs", "container_api_errors"]
   - id: "docker_analysis"
     file: "platform/docker-analysis.md"
     category: "docker"
@@ -231,6 +250,8 @@ workflows:
       - "process_analysis"
       - "network_analysis"
       - "docker_analysis"
+      - "docker_troubleshooting"
+      - "container_log_analysis"
       - "kubernetes_analysis"
       - "ingress_nginx_analysis"
       - "traefik_analysis"
@@ -271,6 +292,8 @@ workflows:
     sequence:
       - "system_inventory"
       - "docker_analysis"
+      - "docker_troubleshooting"
+      - "container_log_analysis"
       - "kubernetes_analysis"
       - "reliability_analysis"
       - "observability_analysis"

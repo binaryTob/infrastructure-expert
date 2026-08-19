@@ -42,13 +42,13 @@ ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspe
 ### Docker info
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'docker info --format "{{.ServerVersion}} driver={{.Driver}} cpus={{.NCPU}} mem={{.MemTotal}} containers={{.Containers}} running={{.ContainersRunning}} images={{.Images}}" 2>/dev/null'
+ssh {{SSH_TARGET}} 'docker info --format "Server={{.ServerVersion}} driver={{.Driver}} cpus={{.NCPU}} mem={{.MemTotal}} containers={{.Containers}} running={{.ContainersRunning}} paused={{.ContainersPaused}} stopped={{.ContainersStopped}} images={{.Images}}" 2>/dev/null'
 ```
 
 ### Image inventory
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null | head -40'
+ssh {{SSH_TARGET}} 'docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null | head -50'
 ```
 
 ### Disk usage
@@ -61,6 +61,12 @@ ssh {{SSH_TARGET}} 'docker system df 2>/dev/null; echo; echo "=== VOLUMES ==="; 
 ```bash
 # [risk:ro] [mode:auto]
 ssh {{SSH_TARGET}} 'docker events --since 24h --until now --filter type=container 2>/dev/null | tail -50 || echo "no events"'
+```
+
+### Exited containers detail (enhanced)
+```bash
+# [risk:ro] [mode:auto]
+ssh {{SSH_TARGET}} 'echo "=== EXITED ==="; docker ps -a --filter "status=exited" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}" 2>/dev/null; echo; echo "=== EXIT ANALYSIS ==="; for c in $(docker ps -a --filter "status=exited" -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); exit=$(docker inspect --format "{{.State.ExitCode}}" $c); oom=$(docker inspect --format "{{.State.OOMKilled}}" $c); echo "$name exit=$exit OOM=$oom"; done'
 ```
 
 ## Analysis

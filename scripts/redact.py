@@ -15,6 +15,10 @@ elif not sys.stdin.isatty():
 else:
     sys.exit(0)
 
+# Terminal formatting is not evidence and raw control characters make YAML invalid.
+data = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", data)
+data = "".join(ch for ch in data if ch in "\n\t\r" or ord(ch) >= 32)
+
 data = re.sub(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----.*?-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----",
               "<<REDACTED:PRIVATE_KEY>>", data, flags=re.S)
 

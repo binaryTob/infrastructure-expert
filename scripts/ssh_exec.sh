@@ -129,6 +129,10 @@ mkdir -p "$EV_DIR"
 
 EV_PATH="$EV_DIR/$EV_BASE.yml"
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+RECORDED_RUN_ID="$(basename "$EV_DIR")"
+if [[ "$RECORDED_RUN_ID" == "evidencia" ]]; then
+  RECORDED_RUN_ID="$(basename "$(dirname "$EV_DIR")")"
+fi
 REMOTE_OUT="$(mktemp)"; REMOTE_ERR="$(mktemp)"; REMOTE_RC=0
 
 SSH_OPTS=(
@@ -149,17 +153,18 @@ REDACTED_ERR="$("$HERE/redact.sh" -s <"$REMOTE_ERR")"
 
 {
   printf 'id: %s\n' "$EV_BASE"
-  printf 'run_id: %s\n' "$(basename "$EV_DIR")"
+  printf 'run_id: %s\n' "$RECORDED_RUN_ID"
   printf 'timestamp: %s\n' "$TS"
   printf 'host: %s\n' "${SSH_HOST:-$HOST}"
   printf 'safety_level: %s\n' "$SAFETY"
   printf 'category: %s\n' "$CATEGORY"
-  printf 'command: %s\n' "$CMD"
+  printf 'command: |2\n'
+  printf '%s\n' "$CMD" | sed 's/^/  /'
   printf 'exit_code: %d\n' "$REMOTE_RC"
-  printf 'stdout: |\n'
-  printf '%s\n' "$REDACTED_OUT" | sed 's/^/  /; s/  $//'
-  printf 'stderr: |\n'
-  printf '%s\n' "$REDACTED_ERR" | sed 's/^/  /; s/  $//'
+  printf 'stdout: |2\n'
+  printf '%s\n' "$REDACTED_OUT" | sed 's/^/  /'
+  printf 'stderr: |2\n'
+  printf '%s\n' "$REDACTED_ERR" | sed 's/^/  /'
   printf 'interpretation: ""\n'
   printf 'confidence: LOW\n'
 } >"$EV_PATH"

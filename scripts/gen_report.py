@@ -44,54 +44,56 @@ def extract_stdout(evidence, key, default=""):
     return e.get("stdout", default).strip()
 
 CSS = '''<style>
-:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8}
+:root{--bg:#080d19;--surface:#101827;--card:#172235;--card-hover:#1c2a40;--border:#2c3b52;--text:#fff;--muted:#a9b7ca;--accent:#5dd5ff;--shadow:0 14px 35px rgba(0,0,0,.22)}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font:14px/1.6 'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
-nav{position:fixed;left:0;top:0;bottom:0;width:190px;background:#0b1120;border-right:1px solid var(--border);padding:14px 0;overflow-y:auto;z-index:100;font-size:11px}
-nav h2{color:var(--accent);padding:0 14px 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px}
-nav a{display:block;padding:4px 14px;color:var(--muted);text-decoration:none;font-size:10px;border-left:3px solid transparent;line-height:1.8}
-nav a:hover{color:var(--text);background:#1e293b;border-left-color:var(--accent)}
-main{margin-left:190px;padding:28px 32px 60px;max-width:960px}
-h1{font-size:26px;margin-bottom:4px;color:#fff}
-h2{font-size:18px;margin:28px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:#fff}
-h3{font-size:15px;margin:16px 0 6px;color:var(--accent)}
+body{font:14px/1.65 'Segoe UI',Inter,system-ui,sans-serif;background:radial-gradient(circle at 85% 0,rgba(14,165,233,.12),transparent 30%),var(--bg);color:var(--text);overflow-x:hidden}
+nav{position:fixed;left:0;top:0;bottom:0;width:210px;background:rgba(8,13,25,.96);border-right:1px solid var(--border);padding:20px 0;overflow-y:auto;z-index:100;font-size:11px;box-shadow:12px 0 35px rgba(0,0,0,.18)}
+nav h2{color:#fff;padding:0 18px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.4px}
+nav a{display:block;padding:6px 18px;color:var(--muted);text-decoration:none;font-size:10px;border-left:3px solid transparent;line-height:1.7;transition:background .15s,color .15s,border-color .15s}
+nav a:hover{color:#fff;background:rgba(93,213,255,.09);border-left-color:var(--accent)}
+main{margin-left:210px;padding:38px 42px 72px;max-width:1120px}
+h1{font-size:30px;line-height:1.2;margin-bottom:7px;color:#fff;letter-spacing:-.5px}
+h2{font-size:19px;margin:36px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--border);color:#fff;letter-spacing:-.2px}
+h3{font-size:15px;margin:18px 0 8px;color:#fff}
 .sub{color:var(--muted);font-size:12px;margin-bottom:20px}
-.meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
-.meta-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 15px;min-width:100px;text-align:center;flex:1 1 auto}
-.meta-item .val{font-size:22px;font-weight:700;color:var(--accent)}
-.meta-item .lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
-.card{background:var(--card);border-radius:8px;padding:13px;border:1px solid var(--border);overflow:hidden}
-.card h4{font-size:12px;color:var(--accent);margin-bottom:5px}
-.card .kv{display:flex;justify-content:space-between;padding:2px 0;font-size:11px;border-bottom:1px solid rgba(255,255,255,.03);gap:6px}
+.meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+.meta-item{background:linear-gradient(145deg,var(--card),var(--surface));border:1px solid var(--border);border-radius:12px;padding:14px 16px;min-width:110px;text-align:center;flex:1 1 auto;box-shadow:var(--shadow)}
+.meta-item .val{font-size:25px;font-weight:750;color:#fff;line-height:1.2}
+.meta-item .lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:5px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:13px}
+.card{background:linear-gradient(145deg,var(--card),var(--surface));border-radius:12px;padding:16px;border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow)}
+.card h4{font-size:12px;color:#fff;margin-bottom:8px;letter-spacing:.25px}
+.card .kv{display:flex;justify-content:space-between;padding:4px 0;font-size:11px;border-bottom:1px solid rgba(255,255,255,.055);gap:8px}
 .card .kv .k{color:var(--muted);white-space:nowrap}
 .card .kv .v{color:#fff;text-align:right;word-break:break-word;font-size:11px}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.crit{background:#dc2626;color:#fff}.high{background:#ea580c;color:#fff}.med{background:#ca8a04;color:#111}.low{background:#2563eb;color:#fff}.info{background:#4b5563;color:#eee}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:9px;font-weight:750;text-transform:uppercase;letter-spacing:.55px;color:#fff!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.crit{background:#c81e3a;color:#fff}.high{background:#d95512;color:#fff}.med{background:#a16207;color:#fff}.low{background:#2563b9;color:#fff}.info{background:#46556b;color:#fff}
 .ok{background:#16a34a;color:#fff}.warn{background:#ea580c;color:#fff}
-.sev-bar{display:flex;gap:5px;margin:8px 0;align-items:center;flex-wrap:wrap}
-.sev-bar span{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600}
-.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0;border-radius:6px}
+.sev-bar{display:flex;gap:7px;margin:10px 0;align-items:center;flex-wrap:wrap}
+.sev-bar span{display:inline-block;padding:5px 11px;border-radius:8px;font-size:11px;font-weight:700;color:#fff!important}
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:10px 0;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;font-size:11px;min-width:550px}
-th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
-th{background:var(--card);color:var(--muted);font-weight:600;text-transform:uppercase;font-size:9px;letter-spacing:.5px;white-space:nowrap}
-tr:hover td{background:rgba(255,255,255,.03)}
-.finding-card{background:var(--card);border-radius:8px;padding:15px;margin:8px 0;border-left:4px solid #555}
-.finding-card.crit{border-left-color:#dc2626}.finding-card.high{border-left-color:#ea580c}.finding-card.med{border-left-color:#ca8a04}.finding-card.low{border-left-color:#2563eb}
-.finding-card h3{font-size:14px;margin:0 0 5px;color:#fff}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:#fff}
+th{background:#111c2d;color:#c5d1df;font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.65px;white-space:nowrap}
+td{background:rgba(23,34,53,.72)}
+tr:hover td{background:var(--card-hover)}
+.finding-card{background:linear-gradient(145deg,var(--card),var(--surface));border-radius:12px;padding:18px;margin:11px 0;border:1px solid var(--border);border-left:5px solid #64748b;box-shadow:var(--shadow)}
+.finding-card.crit{border-left-color:#e11d48}.finding-card.high{border-left-color:#f97316}.finding-card.med{border-left-color:#d69e16}.finding-card.low{border-left-color:#3b82f6}
+.finding-card h3{font-size:15px;margin:0 0 8px;color:#fff;line-height:1.4}
 .finding-card .tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
-.finding-card .mg{display:grid;grid-template-columns:70px 1fr;gap:1px 8px;font-size:11px;margin:5px 0}
+.finding-card .mg{display:grid;grid-template-columns:82px 1fr;gap:2px 10px;font-size:11px;margin:7px 0;color:#fff}
 .finding-card .mg .l{color:var(--muted)}
-.finding-card .rem{background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.1);border-radius:6px;padding:9px;margin-top:8px;font-size:11px}
+.finding-card .rem{background:rgba(14,165,233,.08);border:1px solid rgba(93,213,255,.2);border-radius:9px;padding:11px;margin-top:11px;font-size:11px}
 .finding-card .rem .r{display:flex;padding:1px 0;gap:6px}
-.finding-card .rem .rk{color:var(--accent);min-width:65px;font-weight:600;font-size:10px}
-.finding-card .rem .rv{color:var(--text)}
+.finding-card .rem .rk{color:#fff;min-width:75px;font-weight:700;font-size:10px}
+.finding-card .rem .rv{color:#fff}
 .filter-bar{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
-.filter-bar button{background:var(--card);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px}
-.filter-bar button.active{background:var(--accent);color:#0f172a;border-color:var(--accent)}
-pre{background:#0b1120;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;font-size:11px;line-height:1.5;max-height:350px;overflow-y:auto}
+.filter-bar button{background:var(--card);border:1px solid var(--border);color:#fff;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;transition:background .15s,border-color .15s}
+.filter-bar button:hover{background:var(--card-hover);border-color:#4b607d}
+.filter-bar button.active{background:#0369a1;color:#fff;border-color:#38bdf8}
+pre{background:#09101d;border:1px solid var(--border);border-radius:9px;padding:12px;color:#fff;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;overflow-x:hidden;font-size:11px;line-height:1.55;max-height:350px;overflow-y:auto}
 .section-empty{color:var(--muted);font-size:12px;font-style:italic;padding:8px 0}
-@media(max-width:1024px){nav{display:none}main{margin-left:0;padding:18px 14px 48px}}
+@media(max-width:1024px){nav{display:none}main{margin-left:0;padding:24px 18px 52px;max-width:none}}
 @media(max-width:600px){main{padding:12px 8px 36px}.cards{grid-template-columns:1fr}.meta-item{min-width:85px;padding:8px 10px}.meta-item .val{font-size:18px}h1{font-size:22px}h2{font-size:15px}}
 @media print{nav{display:none}main{margin-left:0}body{background:#fff;color:#111}.finding-card,.card{background:#fff;border:1px solid #ccc}.sev-bar span,.badge{color:#fff}}
 </style>'''
@@ -380,8 +382,15 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     evidence = read_evidence(run_dir)
     comp = detect_components(evidence)
     n_skills, conditional_skills, all_skill_ids = load_skill_catalog()
-    # Skills "ejecutados" = todos; los condicionales se ejecutan solo si su trigger se cumple.
     skills_exec = ", ".join(all_skill_ids) if all_skill_ids else "desconocido"
+    skills_used_path = os.path.join(run_dir, "skills-used.yaml")
+    if os.path.exists(skills_used_path):
+        skills_used = load_yaml(skills_used_path) or {}
+        executed = [
+            s.get("id", "") for s in skills_used.get("skills", [])
+            if s.get("status") != "skipped" and s.get("id")
+        ]
+        skills_exec = ", ".join(executed) if executed else "ninguno"
 
     host = "unknown"
     if inventory:
@@ -485,6 +494,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     # CPU processes
     cpu_html = extract_stdout(evidence, "cpu-ps")
     cpu_lines = cpu_html.split("\n")[:16]
+    cpu_text = "\n".join(cpu_lines)
 
     sections.append(("resources", "Recursos"))
 
@@ -709,7 +719,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 {mem_html}
 </div>
 <h3>Procesos (por CPU)</h3>
-<pre>{cesc(cpu_lines)}</pre>
+<pre>{cesc(cpu_text)}</pre>
 
 <h2 id="containers">Contenedores</h2>
     {docker_html}

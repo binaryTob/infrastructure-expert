@@ -1,14 +1,14 @@
 ---
 id: "kubernetes_analysis"
 name: "Kubernetes Analysis"
-version: "1.0"
+version: "1.1"
 category: "kubernetes"
 phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory"]
 triggers: ["PRESENT:kubectl"]
-provides: ["nodes", "pods", "resource_requests_limits", "pod_restarts", "storage_classes", "rbac"]
+provides: ["nodes", "node_runtime_health", "pods", "resource_requests_limits", "pod_restarts", "storage_classes", "rbac"]
 false_positives:
   - "No kubectl access does NOT mean no cluster; if k3s/rke2/microk8s processes exist, probe manually."
 parameters:
@@ -118,6 +118,18 @@ ssh {{SSH_TARGET}} 'kubectl get pods -A -o jsonpath='"'"'{range .items[*]}{.meta
 ssh {{SSH_TARGET}} 'kubectl get --raw /healthz 2>/dev/null || echo "healthz no disponible"'
 ```
 
+### Node lease vs runtime health
+```bash
+# [risk:ro] [mode:auto]
+ssh {{SSH_TARGET}} 'echo "=== NODE CONDITIONS ==="; kubectl get nodes -o custom-columns=NAME:.metadata.name,READY:.status.conditions[-1].status,HEARTBEAT:.status.conditions[-1].lastHeartbeatTime 2>/dev/null; echo "=== NODE LEASES ==="; kubectl get lease -n kube-node-lease -o custom-columns=NAME:.metadata.name,RENEW:.spec.renewTime 2>/dev/null; echo "=== RUNTIME FAILURES ==="; kubectl get events -A --field-selector involvedObject.kind=Node 2>/dev/null | grep -E "ContainerGCFailed|ImageGCFailed|FailedCreatePodSandBox|NetworkNotReady|DeadlineExceeded" | tail -60'
+```
+
+### Non-healthy pods grouped by node
+```bash
+# [risk:ro] [mode:auto]
+ssh {{SSH_TARGET}} 'kubectl get pods -A -o wide 2>/dev/null | grep -E "Terminating|CrashLoopBackOff|ContainerCreating|ContainerStatusUnknown|ContainerCannotRun|ImagePullBackOff|Error" | head -120'
+```
+
 ## Analysis
 - Count control-plane nodes: etcd/api/scheduler/controller pods. <3 etcd members = no HA.
 - CrashLoopBackOff with high RESTARTS = real defects. Get Exit Code.
@@ -126,9 +138,13 @@ ssh {{SSH_TARGET}} 'kubectl get --raw /healthz 2>/dev/null || echo "healthz no d
 - `local-path` storageclass = node-bound, no HA.
 - No NetworkPolicy = full east-west pod reachability.
 - RBAC: system cluster-admin bindings only = good default.
+- A fresh node Lease only proves the kubelet can reach the API. Repeated runtime RPC
+  timeouts plus stuck pods confirm a degraded node even when Kubernetes reports it `Ready`.
+- Correlate runtime failures with local-path PVCs and StatefulSets: a replacement node
+  cannot recover node-bound data without an explicit storage recovery procedure.
 
 ## Evidence
-- `nodes.txt`, `ns.txt`, `pods.txt`, `restarts.txt`, `workloads.txt`, `svc.txt`, `ingress.txt`, `helm.txt`, `crds.txt`, `tls.txt`, `netpol.txt`, `storage.txt`, `rbac.txt`, `top.txt`, `qos.txt`, `health.txt`
+- `nodes.txt`, `node-runtime.txt`, `node-unhealthy-pods.txt`, `ns.txt`, `pods.txt`, `restarts.txt`, `workloads.txt`, `svc.txt`, `ingress.txt`, `helm.txt`, `crds.txt`, `tls.txt`, `netpol.txt`, `storage.txt`, `rbac.txt`, `top.txt`, `qos.txt`, `health.txt`
 
 ## Security
 Read-only. Never `kubectl apply/delete`.

@@ -167,7 +167,7 @@ skills:
     execution_mode: "auto"
     depends_on: ["system_inventory"]
     triggers: ["PRESENT:kubectl"]
-    provides: ["nodes", "pods", "resource_requests_limits", "pod_restarts", "storage_classes", "rbac", "ingress", "networkpolicy", "services"]
+    provides: ["nodes", "node_runtime_health", "pods", "resource_requests_limits", "pod_restarts", "storage_classes", "rbac", "ingress", "networkpolicy", "services"]
 
   - id: "ingress_nginx_analysis"
     file: "platform/ingress-nginx-analysis.md"

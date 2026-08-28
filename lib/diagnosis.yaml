@@ -70,6 +70,16 @@ symptoms:
     label: "Sospecha de backups inexistentes / no probados"
     order: ["backup_missing"]
 
+  - id: "credential_theft"
+    label: "Sospecha de robo de credenciales (.env / GitHub keys)"
+    order:
+      - "env_files_exposed"
+      - "git_credentials_stolen"
+      - "ssh_key_compromised"
+      - "docker_secret_leak"
+      - "web_secret_exposure"
+      - "exfiltration_detected"
+
 hypotheses:
   502_bad_gateway:
     label: "502 Bad Gateway"
@@ -280,3 +290,142 @@ hypotheses:
         confirm: "Verificar cron/timer de backup y artefacto reciente."
         skills: ["backup_analysis"]
         remediation: "Implementar backups + test de restauración (Level 3)."
+
+  # === CREDENTIAL THEFT HYPOTHESES ===
+  env_files_exposed:
+    label: "Archivos .env expuestos"
+    checks:
+      - name: ".env en directorio web-accessible"
+        how: "El servidor web puede servir directamente el archivo .env si está en el DocumentRoot sin protección."
+        evidence: ["credential_exposure_analysis.web_exposed_env", "web_secret_exposure.web_env_access"]
+        confirm: "curl -I http://localhost/.env retorna 200 en vez de 404/403."
+        skills: ["credential_exposure_analysis", "web_secret_exposure"]
+        remediation: "Bloquear acceso a .env en nginx/apache (deny all) y mover .env fuera del DocumentRoot."
+      - name: ".env world-readable"
+        how: "El archivo .env tiene permisos 644/777 y cualquier usuario local puede leerlo."
+        evidence: ["credential_exposure_analysis.env_permissions"]
+        confirm: "ls -la /ruta/.env muestra permisos que incluyen world-read."
+        skills: ["credential_exposure_analysis"]
+        remediation: "Cambiar permisos a 600 (owner-only) y verificar que no está en un repo git."
+      - name: ".env en directorio git"
+        how: "El .env está en un repositorio git y puede haber sido commiteado."
+        evidence: ["credential_exposure_analysis.env_files", "git_credential_analysis.git_repos"]
+        confirm: "git -C /ruta/log check-attr -a .env; git -C /ruta/log log --all -- .env"
+        skills: ["credential_exposure_analysis", "git_credential_analysis"]
+        remediation: "Eliminar .env del historial git (git filter-branch o BFG) y agregar a .gitignore."
+      - name: ".env en /tmp o ubicación temporal"
+        how: "El .env fue copiado a /tmp o /var/tmp, posiblemente por un proceso de deployment o un atacante."
+        evidence: ["credential_exposure_analysis.env_files", "filesystem_forensics.file_timeline"]
+        confirm: "Verificar ownership y timestamp del archivo en /tmp."
+        skills: ["credential_exposure_analysis", "filesystem_forensics"]
+        remediation: "Eliminar .env de /tmp y verificar por qué fue copiado ahí."
+
+  git_credentials_stolen:
+    label: "Credenciales Git robadas"
+    checks:
+      - name: ".git-credentials existe en el servidor"
+        how: "El archivo .git-credentials contiene credenciales en texto plano para GitHub/GitLab."
+        evidence: ["git_credential_analysis.git_credentials"]
+        confirm: "find / -name '.git-credentials' -type f"
+        skills: ["git_credential_analysis"]
+        remediation: "Eliminar .git-credentials, usar credential helper con cifrado o SSH keys."
+      - name: "Token GitHub en .git/config"
+        how: "El .git/config contiene una URL con token embebido (https://ghp_TOKEN@github.com/...)."
+        evidence: ["git_credential_analysis.git_credentials"]
+        confirm: "cat .git/config | grep 'url.*@github.com'"
+        skills: ["git_credential_analysis"]
+        remediation: "Eliminar token del .git/config, revocar el token en GitHub, usar SSH."
+      - name: "GitHub token en bash_history"
+        how: "Se usó un token de GitHub en un comando y quedó registrado en .bash_history."
+        evidence: ["git_credential_analysis.github_tokens", "filesystem_forensics.bash_history"]
+        confirm: "grep 'ghp_' /root/.bash_history"
+        skills: ["git_credential_analysis", "filesystem_forensics"]
+        remediation: "Revocar el token inmediatamente en GitHub, limpiar bash_history."
+      - name: "SSH key sin passphrase"
+        how: "Una SSH key sin passphrase fue encontrada, permitiendo acceso directo si se roba el archivo."
+        evidence: ["git_credential_analysis.ssh_keys"]
+        confirm: "ssh-keygen -y -f /ruta/id_rsa (si pide passphrase está protegida)."
+        skills: ["git_credential_analysis"]
+        remediation: "Agregar passphrase a la key, rotar la key en GitHub."
+      - name: "Agent forwarding habilitado"
+        how: "ForwardAgent yes en SSH config permite abusar la agent del usuario para firmar commits."
+        evidence: ["git_credential_analysis.ssh_keys"]
+        confirm: "grep -r 'ForwardAgent' ~/.ssh/config"
+        skills: ["git_credential_analysis"]
+        remediation: "Deshabilitar ForwardAgent o restringir a hosts específicos."
+
+  ssh_key_compromised:
+    label: "SSH key comprometida"
+    checks:
+      - name: "SSH key world-readable"
+        how: "La clave privada SSH tiene permisos que permiten lectura por otros usuarios."
+        evidence: ["git_credential_analysis.ssh_keys"]
+        confirm: "ls -la ~/.ssh/id_* | grep -v '600'"
+        skills: ["git_credential_analysis"]
+        remediation: "chmod 600 la clave privada, 644 la pública."
+      - name: "Authorized_keys con keys desconocidas"
+        how: "Se agregaron keys SSH no reconocidas al authorized_keys."
+        evidence: ["security_analysis.persistence_indicators", "ssh_hardening_analysis.authorized_keys"]
+        confirm: "Comparar authorized_keys actual con el conocido."
+        skills: ["security_analysis", "ssh_hardening_analysis"]
+        remediation: "Remover keys no reconocidas, revocar en el servicio correspondiente."
+
+  docker_secret_leak:
+    label: "Secrets expuestos a través de Docker"
+    checks:
+      - name: ".env montado como volumen en contenedor"
+        how: "El archivo .env está montado como volumen Docker, exponiendo secrets al contenedor."
+        evidence: ["docker_secrets_analysis.secret_mounts"]
+        confirm: "docker inspect <container> --format '{{range .Mounts}}{{.Source}}' | grep .env"
+        skills: ["docker_secrets_analysis"]
+        remediation: "Usar Docker secrets (Swarm) o named secrets en vez de montar .env."
+      - name: "Docker socket montado en contenedor"
+        how: "El docker.sock está montado, permitiendo al contenedor controlar Docker."
+        evidence: ["docker_secrets_analysis.privileged_containers"]
+        confirm: "docker inspect <container> --format '{{range .Mounts}}{{.Source}}' | grep docker.sock"
+        skills: ["docker_secrets_analysis"]
+        remediation: "No montar docker.sock en contenedores de aplicación."
+      - name: "Contenedor privileged"
+        how: "Un contenedor tiene privilegios completos sobre el host."
+        evidence: ["docker_secrets_analysis.privileged_containers"]
+        confirm: "docker inspect <container> --format '{{.HostConfig.Privileged}}'"
+        skills: ["docker_secrets_analysis"]
+        remediation: "Eliminar --privileged, usar capabilities específicas."
+
+  web_secret_exposure:
+    label: "Secrets expuestos vía servidor web"
+    checks:
+      - name: "Servidor web sirve .env directamente"
+        how: "HTTP request a /.env retorna 200 con el contenido del archivo."
+        evidence: ["web_secret_exposure.web_env_access"]
+        confirm: "curl -I http://localhost/.env"
+        skills: ["web_secret_exposure"]
+        remediation: "Bloquear .env en nginx/apache config, eliminar .env del DocumentRoot."
+      - name: "phpinfo() expuesto"
+        how: "phpinfo.php está accesible y expone variables de entorno del servidor."
+        evidence: ["web_secret_exposure.phpinfo_exposed"]
+        confirm: "curl -I http://localhost/phpinfo.php"
+        skills: ["web_secret_exposure"]
+        remediation: "Eliminar phpinfo.php de producción."
+
+  exfiltration_detected:
+    label: "Exfiltración de datos detectada"
+    checks:
+      - name: "curl/wget en cron a endpoint desconocido"
+        how: "Un cron job ejecuta curl/wget hacia un endpoint que no es del sistema."
+        evidence: ["network_exfiltration.cron_network_usage"]
+        confirm: "Revisar /etc/cron.d/* y /var/spool/cron/* por comandos curl."
+        skills: ["network_exfiltration"]
+        remediation: "Eliminar el cron job, investigar origen, rotar credenciales."
+      - name: "SSH tunnel activo"
+        how: "Hay un proceso ssh con flags -R/-L/-D activo (tunel inverso/proxy)."
+        evidence: ["network_exfiltration.ssh_tunnels"]
+        confirm: "ps aux | grep 'ssh.*-[RLD]'"
+        skills: ["network_exfiltration"]
+        remediation: "Cerrar el túnel, investigar quién lo abrió."
+      - name: "Conexiones outbound a puertos no estándar"
+        how: "Conexiones salientes a puertos como 4444, 1337, 31337 (comunes en C2)."
+        evidence: ["network_exfiltration.outbound_connections"]
+        confirm: "ss -tnp | grep -E ':4444|:1337|:31337'"
+        skills: ["network_exfiltration"]
+        remediation: "Bloquear el tráfico, investigar el proceso origen."

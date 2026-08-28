@@ -667,6 +667,117 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     sec_html += f'{ssh_html}{sudo_html}{cron_html}'
     sec_html += '</div>'
 
+    # === FORENSIC SECTIONS (credential theft investigation) ===
+    # Credential exposure
+    cred_out = extract_stdout(evidence, "cred-env-files")
+    cred_out2 = extract_stdout(evidence, "cred-env-perms")
+    web_env_out = extract_stdout(evidence, "cred-web-exposed")
+    git_creds_out = extract_stdout(evidence, "git-creds-found")
+    git_tokens_out = extract_stdout(evidence, "git-tokens-found")
+    fs_timeline_out = extract_stdout(evidence, "fs-file-timeline")
+    bash_hist_out = extract_stdout(evidence, "fs-bash-history")
+    audit_out = extract_stdout(evidence, "audit-auth-failures")
+    web_probe_out = extract_stdout(evidence, "web-env-probe")
+    net_exfil_out = extract_stdout(evidence, "net-outbound")
+
+    has_forensic = any([cred_out, cred_out2, web_env_out, git_creds_out, git_tokens_out,
+                        fs_timeline_out, bash_hist_out, audit_out, web_probe_out, net_exfil_out])
+
+    forensic_html = ""
+    if has_forensic:
+        sections.append(("forensic", "Investigacion Forense"))
+        forensic_html = '<div class="cards">'
+
+        # .env files found
+        if cred_out:
+            env_lines = [l.strip() for l in cred_out.split("\n") if l.strip() and not l.startswith("===")]
+            env_count = len([l for l in env_lines if l.startswith("/")])
+            forensic_html += f'<div class="card"><h4>Archivos .env Encontrados</h4>'
+            forensic_html += kv_row("Total encontrados", str(env_count))
+            for l in env_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
+            forensic_html += '</div>'
+
+        # .env permissions
+        if cred_out2:
+            perm_lines = [l.strip() for l in cred_out2.split("\n") if l.strip() and not l.startswith("===")]
+            world_readable = [l for l in perm_lines if "-rw-r--r--" in l or "-rw-rw-rw" in l or "-rwxrwxrwx" in l]
+            forensic_html += f'<div class="card"><h4>Permisos .env</h4>'
+            forensic_html += kv_row("World-readable", f'<span class="badge crit">{len(world_readable)}</span>' if world_readable else '<span class="badge ok">0</span>')
+            for l in perm_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
+            forensic_html += '</div>'
+
+        # Web exposed .env
+        if web_env_out:
+            web_lines = [l.strip() for l in web_env_out.split("\n") if l.strip() and not l.startswith("===")]
+            forensic_html += f'<div class="card"><h4>.env en Directorios Web</h4>'
+            for l in web_lines[:10]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
+            forensic_html += '</div>'
+
+        # Git credentials
+        if git_creds_out:
+            git_lines = [l.strip() for l in git_creds_out.split("\n") if l.strip() and not l.startswith("===")]
+            has_creds = any("FOUND" in l or ".git-credentials" in l or ".netrc" in l for l in git_lines)
+            forensic_html += f'<div class="card"><h4>Credenciales Git</h4>'
+            forensic_html += kv_row("Credenciales encontradas", f'<span class="badge crit">SI</span>' if has_creds else '<span class="badge ok">NO</span>')
+            for l in git_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
+            forensic_html += '</div>'
+
+        # GitHub tokens
+        if git_tokens_out:
+            tok_lines = [l.strip() for l in git_tokens_out.split("\n") if l.strip() and not l.startswith("===")]
+            forensic_html += f'<div class="card"><h4>Tokens GitHub</h4>'
+            for l in tok_lines[:10]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
+            forensic_html += '</div>'
+
+        # Filesystem timeline
+        if fs_timeline_out:
+            tl_lines = [l.strip() for l in fs_timeline_out.split("\n") if l.strip() and not l.startswith("===")]
+            forensic_html += f'<div class="card"><h4>Timeline de Archivos</h4>'
+            for l in tl_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
+            forensic_html += '</div>'
+
+        # Bash history
+        if bash_hist_out:
+            bh_lines = [l.strip() for l in bash_hist_out.split("\n") if l.strip() and not l.startswith("===")]
+            forensic_html += f'<div class="card"><h4>Bash History Analisis</h4>'
+            for l in bh_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
+            forensic_html += '</div>'
+
+        # Web probe results
+        if web_probe_out:
+            wp_lines = [l.strip() for l in web_probe_out.split("\n") if l.strip() and not l.startswith("===")]
+            critical_probes = [l for l in wp_lines if "[CRITICAL]" in l]
+            forensic_html += f'<div class="card"><h4>Web Secret Probes</h4>'
+            forensic_html += kv_row("Exposiciones criticas", f'<span class="badge crit">{len(critical_probes)}</span>' if critical_probes else '<span class="badge ok">0</span>')
+            for l in wp_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
+            forensic_html += '</div>'
+
+        # Network exfiltration
+        if net_exfil_out:
+            ne_lines = [l.strip() for l in net_exfil_out.split("\n") if l.strip() and not l.startswith("===")]
+            forensic_html += f'<div class="card"><h4>Red / Exfiltracion</h4>'
+            for l in ne_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
+            forensic_html += '</div>'
+
+        # Audit logs
+        if audit_out:
+            al_lines = [l.strip() for l in audit_out.split("\n") if l.strip() and not l.startswith("===")]
+            forensic_html += f'<div class="card"><h4>Audit Logs</h4>'
+            for l in al_lines[:15]:
+                forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
+            forensic_html += '</div>'
+
+        forensic_html += '</div>'
+
     # Logs section
     sections.append(("logs", "Logs"))
     logs_html = '<div class="card"><h4>Errores recientes del sistema</h4>'
@@ -739,6 +850,9 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 
     <h2 id="security">Seguridad</h2>
 {sec_html}
+
+    <h2 id="forensic">Investigacion Forense</h2>
+    {forensic_html if forensic_html else '<p class="section-empty">No hay datos forenses disponibles.</p>'}
 
 <h2 id="logs">Logs</h2>
 {logs_html}

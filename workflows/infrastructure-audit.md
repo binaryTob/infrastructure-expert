@@ -60,6 +60,7 @@ GENERATE REPORT -> PRINT EXECUTIVE SUMMARY
 | `discovery` | 4 skills | Solo descubrimiento e inventario |
 | `container` | 13 skills | Host de contenedores |
 | `security` | 7 skills | Auditoria de seguridad |
+| `forensic` | 35 skills | Investigacion forense de robo de credenciales |
 
 ## Directorio de reportes
 

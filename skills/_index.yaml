@@ -1,8 +1,10 @@
-version: "2.1"
-generated: "2026-08-19"
+version: "2.2"
+generated: "2026-08-28"
 
 skills:
-  # Discovery phase
+  # ============================================================
+  # DISCOVERY PHASE
+  # ============================================================
   - id: "system_inventory"
     file: "discovery/system-inventory.md"
     category: "discovery"
@@ -21,7 +23,9 @@ skills:
     depends_on: ["system_inventory"]
     provides: ["services_running", "services_enabled", "services_failed", "timers", "unit_resources", "restart_counts", "timers_active"]
 
-  # Resource analysis phase
+  # ============================================================
+  # RESOURCE ANALYSIS PHASE
+  # ============================================================
   - id: "cpu_analysis"
     file: "resources/cpu-analysis.md"
     category: "cpu"
@@ -76,7 +80,9 @@ skills:
     depends_on: ["system_inventory"]
     provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections"]
 
-  # Network deep-dive (conditional)
+  # ============================================================
+  # NETWORK DEEP-DIVE (conditional)
+  # ============================================================
   - id: "dns_analysis"
     file: "network/dns-analysis.md"
     category: "network"
@@ -97,7 +103,9 @@ skills:
     triggers: ["PRESENT:ufw", "PRESENT:iptables", "PRESENT:nftables", "PRESENT:firewalld", "PRESENT:firewall-cmd"]
     provides: ["firewall_backend", "firewall_rules", "default_policies", "open_ports_exposed", "logging", "fail2ban_integration"]
 
-  # Web server / TLS / HTTP (conditional — triggers on detected web server or certs)
+  # ============================================================
+  # WEB / TLS / HTTP (conditional)
+  # ============================================================
   - id: "web_server_analysis"
     file: "platform/web-server-analysis.md"
     category: "web"
@@ -128,7 +136,19 @@ skills:
     triggers: ["PRESENT:http_server", "PRESENT:apache2", "PRESENT:httpd", "PRESENT:nginx"]
     provides: ["endpoint_status", "redirect_chains", "response_times", "upstream_health", "security_headers", "internal_vs_external_reachability"]
 
-  # Platform discovery (conditional): Docker deep troubleshooting
+  # ============================================================
+  # DOCKER (conditional)
+  # ============================================================
+  - id: "docker_analysis"
+    file: "platform/docker-analysis.md"
+    category: "docker"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    triggers: ["PRESENT:docker"]
+    provides: ["containers", "container_stats", "images", "volumes", "container_limits"]
+
   - id: "docker_troubleshooting"
     file: "platform/docker-troubleshooting.md"
     category: "docker"
@@ -149,16 +169,9 @@ skills:
     triggers: ["PRESENT:docker"]
     provides: ["container_error_logs", "container_crash_logs", "container_api_errors"]
 
-  - id: "docker_analysis"
-    file: "platform/docker-analysis.md"
-    category: "docker"
-    phase: "analyze"
-    risk: "readonly"
-    execution_mode: "auto"
-    depends_on: ["system_inventory"]
-    triggers: ["PRESENT:docker"]
-    provides: ["containers", "container_stats", "images", "volumes", "container_limits"]
-
+  # ============================================================
+  # KUBERNETES (conditional)
+  # ============================================================
   - id: "kubernetes_analysis"
     file: "platform/kubernetes-analysis.md"
     category: "kubernetes"
@@ -189,6 +202,9 @@ skills:
     triggers: ["PRESENT:traefik"]
     provides: ["traefik_providers", "entrypoints", "middlewares", "tls_analysis"]
 
+  # ============================================================
+  # DATABASE (conditional)
+  # ============================================================
   - id: "database_analysis"
     file: "platform/database-analysis.md"
     category: "database"
@@ -199,7 +215,6 @@ skills:
     triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:redis_socket", "PRESENT:psql", "PRESENT:mysql", "PRESENT:redis-cli", "PRESENT:mongod", "PRESENT:db_config"]
     provides: ["db_engine", "db_connections", "db_size", "db_settings", "db_location"]
 
-  # Database tuning (conditional — deeper optimization)
   - id: "db_tuning_analysis"
     file: "platform/db-tuning-analysis.md"
     category: "database"
@@ -210,7 +225,9 @@ skills:
     triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:psql", "PRESENT:mysql"]
     provides: ["pg_settings", "pg_buffers", "pg_connections", "pg_wal", "my_cnf", "innodb_buffer", "my_connections", "slow_queries", "index_usage", "vacuum_status"]
 
-  # Security
+  # ============================================================
+  # SECURITY
+  # ============================================================
   - id: "security_analysis"
     file: "security/security-analysis.md"
     category: "security"
@@ -220,7 +237,6 @@ skills:
     depends_on: ["system_inventory", "process_analysis", "network_analysis"]
     provides: ["ssh_posture", "privileged_processes", "suspicious_processes", "suspicious_connections", "persistence_indicators"]
 
-  # SSH hardening + fail2ban (conditional)
   - id: "ssh_hardening_analysis"
     file: "security/ssh-hardening-analysis.md"
     category: "security"
@@ -231,7 +247,77 @@ skills:
     triggers: ["PRESENT:fail2ban", "PRESENT:ssh"]
     provides: ["sshd_config", "fail2ban_jails", "ban_stats", "ssh_auth", "authorized_keys", "ssh_exposure", "hostkeys"]
 
-  # Configuration / Logs
+  # ============================================================
+  # FORENSIC SKILLS — CREDENTIAL THEFT INVESTIGATION (NEW)
+  # ============================================================
+  - id: "credential_exposure_analysis"
+    file: "security/credential-exposure-analysis.md"
+    category: "security"
+    phase: "forensic"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["env_files", "env_permissions", "web_exposed_env", "credential_files"]
+
+  - id: "git_credential_analysis"
+    file: "security/git-credential-analysis.md"
+    category: "security"
+    phase: "forensic"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["git_repos", "git_credentials", "ssh_keys", "github_tokens"]
+
+  - id: "docker_secrets_analysis"
+    file: "security/docker-secrets-analysis.md"
+    category: "security"
+    phase: "forensic"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "docker_analysis"]
+    triggers: ["PRESENT:docker"]
+    provides: ["container_env_secrets", "secret_mounts", "privileged_containers"]
+
+  - id: "filesystem_forensics"
+    file: "security/filesystem-forensics.md"
+    category: "security"
+    phase: "forensic"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["file_timeline", "proc_open_files", "deleted_files", "bash_history"]
+
+  - id: "audit_logs_forensics"
+    file: "security/audit-logs-forensics.md"
+    category: "security"
+    phase: "forensic"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides: ["audit_events", "auth_log_analysis", "post_exploitation"]
+
+  - id: "web_secret_exposure"
+    file: "security/web-secret-exposure.md"
+    category: "security"
+    phase: "forensic"
+    risk: "probe"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    triggers: ["PRESENT:http_server"]
+    provides: ["web_env_access", "web_config_exposure", "phpinfo_exposed"]
+
+  - id: "network_exfiltration"
+    file: "security/network-exfiltration.md"
+    category: "security"
+    phase: "forensic"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    provides: ["outbound_connections", "suspicious_processes", "cron_network_usage"]
+
+  # ============================================================
+  # CONFIGURATION / LOGS
+  # ============================================================
   - id: "configuration_analysis"
     file: "analysis/configuration-analysis.md"
     category: "configuration"
@@ -250,7 +336,9 @@ skills:
     depends_on: ["system_inventory", "disk_analysis"]
     provides: ["journal_errors", "oom_in_logs", "disk_errors", "log_disk_usage"]
 
-  # Reliability / Observability / Backup (no longer K8s-only)
+  # ============================================================
+  # RELIABILITY / OBSERVABILITY / BACKUP
+  # ============================================================
   - id: "reliability_analysis"
     file: "reliability/reliability-analysis.md"
     category: "reliability"
@@ -278,7 +366,9 @@ skills:
     depends_on: ["system_inventory"]
     provides: ["backup_mechanisms", "db_backups", "filesystem_backups", "restore_readiness", "etcd_snapshots"]
 
-  # Capacity / Optimization / Migration (correlate phase)
+  # ============================================================
+  # CAPACITY / OPTIMIZATION / MIGRATION
+  # ============================================================
   - id: "capacity_analysis"
     file: "analysis/capacity-analysis.md"
     category: "capacity"
@@ -311,6 +401,9 @@ skills:
     depends_on: ["system_inventory"]
     provides: ["migration_readiness", "compatibility_matrix", "migration_phases", "migration_plan"]
 
+# ============================================================
+# WORKFLOW DEFINITIONS
+# ============================================================
 workflows:
   full:
     description: "Analisis completo de infraestructura (read-only)"
@@ -408,3 +501,32 @@ workflows:
       - "ssh_hardening_analysis"
       - "configuration_analysis"
       - "log_analysis"
+
+  forensic:
+    description: "Investigacion forense de robo de credenciales (.env / GitHub keys)"
+    sequence:
+      - "system_inventory"
+      - "systemd_analysis"
+      - "process_analysis"
+      - "network_analysis"
+      - "security_analysis"
+      - "ssh_hardening_analysis"
+      - "credential_exposure_analysis"
+      - "git_credential_analysis"
+      - "docker_secrets_analysis"
+      - "filesystem_forensics"
+      - "audit_logs_forensics"
+      - "web_secret_exposure"
+      - "network_exfiltration"
+      - "docker_analysis"
+      - "web_server_analysis"
+      - "tls_certificate_analysis"
+      - "database_analysis"
+      - "log_analysis"
+      - "cpu_analysis"
+      - "memory_analysis"
+      - "disk_analysis"
+      - "io_analysis"
+      - "configuration_analysis"
+      - "reliability_analysis"
+      - "observability_analysis"

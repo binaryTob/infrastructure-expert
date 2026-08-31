@@ -315,6 +315,25 @@ skills:
     depends_on: ["system_inventory", "network_analysis"]
     provides: ["outbound_connections", "suspicious_processes", "cron_network_usage"]
 
+  - id: "advanced_credential_theft_investigation"
+    file: "security/advanced-credential-theft-investigation.md"
+    category: "security"
+    phase: "forensic"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory"]
+    provides:
+      - "env_files_complete_inventory"
+      - "github_tokens_detected"
+      - "ssh_keys_audit"
+      - "git_repos_with_secrets"
+      - "docker_secrets_exposed"
+      - "web_exposed_credentials"
+      - "exfiltration_evidence"
+      - "attack_timeline"
+      - "persistence_mechanisms"
+      - "root_cause_hypothesis"
+
   # ============================================================
   # CONFIGURATION / LOGS
   # ============================================================

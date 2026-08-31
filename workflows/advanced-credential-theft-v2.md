@@ -1,21 +1,22 @@
-# Workflow: Credential Theft Investigation
+# Workflow: Advanced Credential Theft Investigation v2.0
 
-Investigación forense de robo de credenciales (.env / GitHub push keys).
-Ejecuta skills existentes + 7 skills forenses nuevos para reconstruir el vector de ataque.
+Workflow forense avanzado para determinar CÓMO se robaron las .env o las claves
+para push de GitHub. Combina skills existentes con un skill nuevo y mejorado
+que realiza análisis completo de vectores de ataque.
 
-## Entrada mínima
-
-| Variable | Requerido | Default | Descripción |
-|----------|-----------|---------|-------------|
-| `SSH_TARGET` | si | — | `user@host` o alias SSH configurado |
-| `MODE` | no | `forensic` | `forensic` (default para este workflow) |
+## Objetivo
+Reconstruir el vector de ataque completo:
+1. Cómo entró el atacante
+2. Qué credenciales accedió
+3. Cómo exfiltró los datos
+4. Si dejó mecanismos de persistencia
 
 ## Diagrama de ejecución
 
 ```
 PHASE 1: DISCOVERY (existing skills)
   │
-  ├── system_inventory        → OS, kernel, users, services, network triage
+  ├── system_inventory        → OS, kernel, users, services, network
   ├── systemd_analysis        → services, timers, restarts
   ├── process_analysis        → all processes, tree, zombies
   └── network_analysis        → interfaces, ports, connections, firewall
@@ -27,12 +28,12 @@ PHASE 2: SECURITY BASELINE (existing skills)
   └── ssh_hardening_analysis  → sshd_config, fail2ban, authorized_keys
   │
   v
-PHASE 3: CREDENTIAL EXPOSURE (NEW forensic skills — v2.0 ADVANCED)
+PHASE 3: ADVANCED CREDENTIAL THEFT INVESTIGATION (NEW v2.0)
   │
-  └── advanced_credential_theft_investigation  → COMPLETE attack vector analysis
+  └── advanced_credential_theft_investigation
       │
       ├── Phase 3.1: Complete .env Discovery
-      │   ├── All .env files system-wide with metadata
+      │   ├── All .env files system-wide
       │   ├── .env files in git repos (tracked secrets)
       │   └── .env with weak permissions
       │
@@ -67,19 +68,7 @@ PHASE 3: CREDENTIAL EXPOSURE (NEW forensic skills — v2.0 ADVANCED)
           └── Timeline reconstruction
   │
   v
-PHASE 4: FORENSIC TIMELINE (NEW forensic skills)
-  │
-  ├── filesystem_forensics    → file access timeline, open files, deleted artifacts
-  └── audit_logs_forensics    → auth logs, auditd, post-exploitation indicators
-  │
-  v
-PHASE 5: ATTACK SURFACE (NEW forensic skills)
-  │
-  ├── web_secret_exposure     → HTTP probes for .env, config files, phpinfo (conditional)
-  └── network_exfiltration    → outbound connections, curl in cron, SSH tunnels
-  │
-  v
-PHASE 6: PLATFORM (existing conditional skills)
+PHASE 4: PLATFORM (existing conditional skills)
   │
   ├── docker_analysis         → container inventory (if Docker present)
   ├── web_server_analysis     → nginx/apache config (if web server present)
@@ -88,7 +77,7 @@ PHASE 6: PLATFORM (existing conditional skills)
   └── log_analysis            → journal errors, OOM, disk errors
   │
   v
-PHASE 7: RESOURCES (existing skills)
+PHASE 5: RESOURCES (existing skills)
   │
   ├── cpu_analysis
   ├── memory_analysis
@@ -96,25 +85,30 @@ PHASE 7: RESOURCES (existing skills)
   └── io_analysis
   │
   v
-PHASE 8: ANALYSIS & CORRELATION (existing skills)
+PHASE 6: ANALYSIS & CORRELATION (existing skills)
   │
   ├── configuration_analysis  → sysctl, limits, server config
   ├── reliability_analysis    → SPOF, restart policies
   └── observability_analysis  → monitoring, log rotation
   │
   v
-PHASE 9: FINDINGS GENERATION
+PHASE 7: FINDINGS GENERATION
   │
-  ├── Cross-reference all evidence
+  ├── Cross-reference all evidence from Phase 3
   ├── Build attack timeline hypothesis
+  ├── Determine root cause (initial access vector)
   ├── Generate findings with severity + confidence
   └── Write findings.yaml
   │
   v
-PHASE 10: REPORT
+PHASE 8: REPORT
   │
   ├── Generate forensic HTML report
-  └── Print executive summary
+  └── Print executive summary with:
+      ├── Attack vector hypothesis
+      ├── Credentials compromised
+      ├── Exfiltration method
+      └── Recommended remediations
 ```
 
 ## Reglas de ejecución por fase
@@ -123,20 +117,19 @@ PHASE 10: REPORT
 - Ejecutar TODOS los skills sin condicionales
 - Son la base del inventario y postura de seguridad
 
-### Fase 3-5 (Forensic Skills — NUEVOS)
-- Ejecutar TODOS los skills forenses
-- `docker_secrets_analysis`: solo si Docker está presente (trigger automático)
-- `web_secret_exposure`: solo si hay servidor web (trigger automático)
-- Los demás se ejecutan siempre
+### Fase 3 (Advanced Credential Theft Investigation)
+- Ejecutar EL skill `advanced_credential_theft_investigation`
+- Este skill es autocontenido y ejecuta todas las fases internas
+- NO requiere skills adicionales (pero puede complementarlos)
 
-### Fase 6 (Platform)
+### Fase 4 (Platform)
 - Ejecutar SOLO si el componente fue detectado en Fase 1
 - Seguir triggers de `_index.yaml`
 
-### Fase 7-8 (Resources + Analysis)
+### Fase 5-6 (Resources + Analysis)
 - Ejecutar todos — son cheap y provide contexto
 
-## Reglas duras (heredadas de infrastructure-audit.md)
+## Reglas duras
 
 1. **Read-only.** Nada que modifique el servidor.
 2. **Evidence first.** Cada afirmación con evidencia almacenada.
@@ -148,12 +141,13 @@ PHASE 10: REPORT
 
 Directorio de reportes: `reportes/<run-id>/`
 - `reportes/<run-id>/evidencia/` — YAML records por comando
+- `reportes/<run-id>/advanced-credential-theft/` — evidencia del skill principal
 - `reportes/<run-id>/findings/` — hallazgos
 - `reportes/<run-id>/findings.yaml` — findings estructurados
 - `reportes/<run-id>/inventory.yaml` — inventario
 - `reportes/<run-id>/informe-forense-<run-id>.html` — reporte HTML forense
 
-## Safety levels (ver SAFETY.md)
+## Safety levels
 
 | Level | Name | Scope | Default |
 |-------|------|-------|---------|

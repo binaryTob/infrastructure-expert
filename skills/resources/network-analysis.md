@@ -7,7 +7,7 @@ phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory"]
-provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections"]
+provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections", "tcp_retransmits", "interface_drops"]
 triggers: []
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/network" }
@@ -68,6 +68,12 @@ ssh {{SSH_TARGET}} 'echo "=== UFW ==="; command -v ufw >/dev/null && ufw status 
 ssh {{SSH_TARGET}} 'ss -s 2>/dev/null; echo; ss -tna 2>/dev/null | awk '"'"'{print $4}'"'"' | awk -F: '"'"'{print $NF}'"'"' | sort | uniq -c | sort -rn | head -15'
 ```
 
+### Interface drops, TCP retransmits and softnet pressure
+```bash
+# [risk:ro] [mode:auto]
+ssh {{SSH_TARGET}} 'ip -s link 2>/dev/null; echo ===TCP===; nstat -az 2>/dev/null | grep -E "TcpRetransSegs|TcpExtTCPTimeouts|TcpExtTCPSynRetrans|IpInDiscards|IpOutDiscards"; echo ===SOFTNET===; cat /proc/net/softnet_stat 2>/dev/null; echo ===NIC===; for i in $(ls /sys/class/net 2>/dev/null | grep -v lo); do ethtool -S "$i" 2>/dev/null | grep -iE "drop|miss|error|timeout|discard|overrun|buffer"; done'
+```
+
 ### Kubernetes networking (hostNetwork pods only — svc/netpol consumed from kubernetes_analysis)
 ```bash
 # [risk:ro] [mode:auto] [requires:kubectl]
@@ -88,9 +94,13 @@ ssh {{SSH_TARGET}} 'for host in localhost $(hostname -I 2>/dev/null); do curl -s
 - Read `kubernetes/netpol.txt` from kubernetes_analysis for NetworkPolicy evidence.
 - Read `kubernetes/svc.txt` from kubernetes_analysis for service inventory.
 - No NetworkPolicy = full east-west pod reachability.
+- Counters acumulados prueban historial, no tasa actual. Correlacionar con `sar -n EDEV`
+  o dos snapshots antes de atribuir un incidente a drops/retransmisiones.
+- Retransmisiones/RTO altos en `ss -tin` sobre el mismo destino del fallo aportan la
+  segunda fuente necesaria para confirmar degradacion del camino TCP.
 
 ## Evidence
-- `interfaces.txt`, `routes.txt`, `dns.txt`, `listening.txt`, `established.txt`, `firewall.txt`, `conn-count.txt`, `k8s-hostnet.txt`, `edge-curl.txt`
+- `interfaces.txt`, `routes.txt`, `dns.txt`, `listening.txt`, `established.txt`, `firewall.txt`, `conn-count.txt`, `transport-errors.txt`, `k8s-hostnet.txt`, `edge-curl.txt`
 
 ## Security
 Read-only. Report exposure, never modify firewall rules.

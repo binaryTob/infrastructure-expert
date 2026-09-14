@@ -134,6 +134,7 @@ if [[ "$RECORDED_RUN_ID" == "evidencia" ]]; then
   RECORDED_RUN_ID="$(basename "$(dirname "$EV_DIR")")"
 fi
 REMOTE_OUT="$(mktemp)"; REMOTE_ERR="$(mktemp)"; REMOTE_RC=0
+trap 'rm -f "$REMOTE_OUT" "$REMOTE_ERR"' EXIT
 
 SSH_OPTS=(
   -o BatchMode=yes
@@ -146,10 +147,11 @@ SSH_OPTS=(
   -p "$PORT"
 )
 
-timeout "${TO}" ssh "${SSH_OPTS[@]}" "$USER@$HOST" "$CMD" >"$REMOTE_OUT" 2>"$REMOTE_ERR" || REMOTE_RC=$?
+REMOTE_RC="$(python3 "$HERE/capture_redacted.py" "$REMOTE_OUT" "$REMOTE_ERR" \
+  "$HERE/redact.sh" timeout "${TO}" ssh "${SSH_OPTS[@]}" "$USER@$HOST" "$CMD")" || exit 3
 
-REDACTED_OUT="$("$HERE/redact.sh" -s <"$REMOTE_OUT")"
-REDACTED_ERR="$("$HERE/redact.sh" -s <"$REMOTE_ERR")"
+REDACTED_OUT="$(<"$REMOTE_OUT")"
+REDACTED_ERR="$(<"$REMOTE_ERR")"
 
 {
   printf 'id: %s\n' "$EV_BASE"

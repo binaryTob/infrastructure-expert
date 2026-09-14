@@ -78,7 +78,7 @@ skills:
     risk: "readonly"
     execution_mode: "auto"
     depends_on: ["system_inventory"]
-    provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections"]
+    provides: ["interfaces", "routes", "open_ports", "port_process_map", "connections", "tcp_retransmits", "interface_drops"]
 
   # ============================================================
   # NETWORK DEEP-DIVE (conditional)
@@ -168,6 +168,16 @@ skills:
     depends_on: ["docker_analysis", "docker_troubleshooting"]
     triggers: ["PRESENT:docker"]
     provides: ["container_error_logs", "container_crash_logs", "container_api_errors"]
+
+  - id: "etcd_analysis"
+    file: "platform/etcd-analysis.md"
+    category: "etcd"
+    phase: "diagnose"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "network_analysis"]
+    triggers: ["PRESENT:etcd", "PRESENT:etcdctl", "SERVICE:etcd"]
+    provides: ["etcd_version", "etcd_members", "etcd_endpoints", "etcd_quorum", "etcd_alarms", "etcd_latency"]
 
   # ============================================================
   # KUBERNETES (conditional)
@@ -438,6 +448,7 @@ workflows:
       - "dns_analysis"
       - "firewall_analysis"
       - "web_server_analysis"
+      - "etcd_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
       - "docker_analysis"
@@ -472,6 +483,7 @@ workflows:
       - "dns_analysis"
       - "firewall_analysis"
       - "web_server_analysis"
+      - "etcd_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
       - "log_analysis"
@@ -494,6 +506,7 @@ workflows:
       - "docker_analysis"
       - "docker_troubleshooting"
       - "container_log_analysis"
+      - "etcd_analysis"
       - "kubernetes_analysis"
       - "reliability_analysis"
       - "observability_analysis"

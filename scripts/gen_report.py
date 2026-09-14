@@ -397,6 +397,9 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         host = inventory.get("host", {}).get("ssh", {}).get("host", "unknown")
 
     findings_list = findings.get("findings", []) if findings else []
+    executive_summary = findings.get("executive_summary", "") if findings else ""
+    root_cause = findings.get("root_cause", "") if findings else ""
+    current_status = findings.get("current_status", "") if findings else ""
     f_by_sev = {"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0,"INFO":0}
     for f in findings_list:
         s = f.get("severity","INFO")
@@ -819,6 +822,12 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 <span class="med">MEDIUM: {f_by_sev['MEDIUM']}</span>
 <span class="low">LOW: {f_by_sev['LOW']}</span>
 <span class="info">INFO: {f_by_sev['INFO']}</span>
+</div>
+<div class="card" style="margin-top:12px">
+<h4>Diagnostico</h4>
+<div class="kv"><span class="k">Resumen</span><span class="v">{cesc(executive_summary)}</span></div>
+<div class="kv"><span class="k">Causa raiz</span><span class="v">{cesc(root_cause)}</span></div>
+<div class="kv"><span class="k">Estado actual</span><span class="v">{cesc(current_status)}</span></div>
 </div>
 <p style="font-size:12px;color:var(--muted);margin-top:8px">Skills ejecutados: {skills_exec}</p>
 

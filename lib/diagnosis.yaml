@@ -70,6 +70,10 @@ symptoms:
     label: "Sospecha de backups inexistentes / no probados"
     order: ["backup_missing"]
 
+  - id: "database_cluster_flap"
+    label: "Failover frecuente / backend PostgreSQL intermitente / Patroni sin primario"
+    order: ["distributed_consensus_latency", "database_backend_flap"]
+
   - id: "credential_theft"
     label: "Sospecha de robo de credenciales (.env / GitHub keys)"
     order:
@@ -290,6 +294,26 @@ hypotheses:
         confirm: "Verificar cron/timer de backup y artefacto reciente."
         skills: ["backup_analysis"]
         remediation: "Implementar backups + test de restauración (Level 3)."
+
+  distributed_consensus_latency:
+    label: "etcd pierde quorum o cambia de lider por latencia"
+    checks:
+      - name: "Latencia de disco o red supera los tiempos de Raft"
+        how: "Fsyncs lentos o perdida/retransmision entre peers retrasa heartbeats y elecciones."
+        evidence: ["etcd_analysis.etcd_latency", "etcd_analysis.etcd_quorum", "network_analysis.tcp_retransmits"]
+        confirm: "Cruzar cambios de lider y timeouts con histogramas WAL/backend, ss -tin y una serie de salud."
+        skills: ["etcd_analysis", "io_analysis", "network_analysis", "log_analysis"]
+        remediation: "Asegurar almacenamiento de baja latencia y una red privada estable entre miembros; ajustar timeouts solo despues de corregir la infraestructura."
+
+  database_backend_flap:
+    label: "HAProxy pierde intermitentemente el primario Patroni"
+    checks:
+      - name: "El check /master alterna entre 200 y timeout"
+        how: "El primario existe, pero su API de salud o el camino TCP deja de responder dentro del timeout."
+        evidence: ["web_server_analysis.tcp_backend_health", "network_analysis.tcp_retransmits"]
+        confirm: "Comparar eventos DOWN/no-server de HAProxy con probes directos a :8008 y sockets TCP hacia :5432."
+        skills: ["web_server_analysis", "network_analysis", "database_analysis", "etcd_analysis"]
+        remediation: "Corregir la perdida/latencia hacia el primario y validar el host Patroni; no ocultar el fallo aumentando el health-check timeout."
 
   # === CREDENTIAL THEFT HYPOTHESES ===
   env_files_exposed:

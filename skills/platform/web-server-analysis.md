@@ -8,7 +8,7 @@ risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory", "network_analysis"]
 triggers: ["PRESENT:apache2", "PRESENT:httpd", "PRESENT:nginx", "PRESENT:haproxy", "PRESENT:http_server"]
-provides: ["webserver_engine", "vhosts", "proxy_upstream_map", "proxy_status", "upstream_health"]
+provides: ["webserver_engine", "vhosts", "proxy_upstream_map", "proxy_status", "upstream_health", "tcp_backend_health"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/web" }
   SSH_TARGET: { type: "string", required: true }
@@ -52,6 +52,12 @@ ssh {{SSH_TARGET}} 'echo "=== NGINX CONF ==="; nginx -T 2>/dev/null | grep -nE "
 ssh {{SSH_TARGET}} 'grep -rniE "frontend|backend|server |bind |mode " /etc/haproxy/haproxy.cfg 2>/dev/null | grep -vE "^\s*#" | head -60'
 ```
 
+### HAProxy validation + TCP backend map (if haproxy present)
+```bash
+# [risk:probe] [mode:auto] [requires:haproxy]
+ssh {{SSH_TARGET}} 'haproxy -c -f /etc/haproxy/haproxy.cfg 2>&1; echo ===MAP===; grep -En "^[[:space:]]*(frontend|backend|listen|bind|mode|server|balance|maxconn|timeout)[[:space:]]" /etc/haproxy/haproxy.cfg 2>/dev/null | head -100; echo ===PROBES===; grep -E "^[[:space:]]*server[[:space:]]" /etc/haproxy/haproxy.cfg 2>/dev/null | awk "{print \$2,\$3}" | while read name target; do host=${target%:*}; port=${target##*:}; timeout 3 bash -c "</dev/tcp/$host/$port" >/dev/null 2>&1 && state=reachable || state=unreachable; echo "$name $host:$port $state"; done'
+```
+
 ### Map proxy target -> live backend (the 502 diagnostic chain)
 ```bash
 # [risk:probe] [mode:auto]
@@ -76,6 +82,8 @@ ssh {{SSH_TARGET}} 'ls -1 /var/log/apache2/ 2>/dev/null; tail -n 40 /var/log/apa
 - Map each `ProxyPass / http://localhost:PORT/` to the process on that port (`ss -tlnp`). If the port is a `docker-proxy`, follow it to the container IP and verify the app inside is listening (`curl <container-ip>:port`).
 - An upstream that returns 200 directly but 502 through the proxy = proxy config points at the wrong target.
 - No reverse proxy at all but 5xx = app-level error; go to `log_analysis` / `http_health_analysis`.
+- In `mode tcp`, HTTP probes are invalid. Use the TCP backend map and HAProxy runtime state;
+  a reachable standby may intentionally fail an application-level leader health check.
 
 ## Thresholds
 

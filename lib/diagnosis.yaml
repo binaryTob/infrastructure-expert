@@ -70,6 +70,10 @@ symptoms:
     label: "Sospecha de backups inexistentes / no probados"
     order: ["backup_missing"]
 
+  - id: "teleport_agent_failure"
+    label: "Agente Teleport desconectado o fuera de servicio"
+    order: ["teleport_service_failure"]
+
   - id: "database_cluster_flap"
     label: "Failover frecuente / backend PostgreSQL intermitente / Patroni sin primario"
     order: ["distributed_consensus_latency", "database_backend_flap"]
@@ -294,6 +298,28 @@ hypotheses:
         confirm: "Verificar cron/timer de backup y artefacto reciente."
         skills: ["backup_analysis"]
         remediation: "Implementar backups + test de restauración (Level 3)."
+
+  teleport_service_failure:
+    label: "Agente Teleport no operativo"
+    checks:
+      - name: "Servicio detenido o configuracion invalida"
+        how: "La unidad systemd no puede iniciar por configuracion, permisos o parametros incompatibles."
+        evidence: ["teleport_analysis.teleport_service_state", "teleport_analysis.teleport_config_validity", "teleport_analysis.teleport_errors"]
+        confirm: "Cruzar ActiveState/ExecMainStatus, fecha de configuracion, inicio efectivo y el primer error causal del journal."
+        skills: ["teleport_analysis", "systemd_analysis", "log_analysis"]
+        remediation: "Corregir la configuracion o permisos y reiniciar Teleport (Level 3)."
+      - name: "Fallo de identidad o registro"
+        how: "La identidad expiro, fue revocada o el metodo de join no puede registrar el agente."
+        evidence: ["teleport_analysis.teleport_errors", "teleport_analysis.teleport_roles"]
+        confirm: "Los logs muestran errores x509, certificado, join, token o CA pin de forma repetida."
+        skills: ["teleport_analysis"]
+        remediation: "Renovar la identidad mediante el metodo de join autorizado y reiniciar Teleport (Level 3)."
+      - name: "Proxy o Auth Server inalcanzable"
+        how: "DNS, ruta, firewall o puerto remoto impiden que el agente mantenga el tunel reverso."
+        evidence: ["teleport_analysis.teleport_connectivity", "teleport_analysis.teleport_errors"]
+        confirm: "La resolucion o prueba TCP falla y coincide temporalmente con timeout/refused/no route en logs."
+        skills: ["teleport_analysis", "network_analysis", "dns_analysis", "firewall_analysis"]
+        remediation: "Restaurar DNS/ruta/ACL al endpoint Teleport correcto (Level 3)."
 
   distributed_consensus_latency:
     label: "etcd pierde quorum o cambia de lider por latencia"

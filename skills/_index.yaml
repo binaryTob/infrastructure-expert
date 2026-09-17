@@ -179,6 +179,16 @@ skills:
     triggers: ["PRESENT:etcd", "PRESENT:etcdctl", "SERVICE:etcd"]
     provides: ["etcd_version", "etcd_members", "etcd_endpoints", "etcd_quorum", "etcd_alarms", "etcd_latency"]
 
+  - id: "teleport_analysis"
+    file: "platform/teleport-analysis.md"
+    category: "teleport"
+    phase: "diagnose"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "systemd_analysis", "network_analysis"]
+    triggers: ["PRESENT:teleport", "SERVICE:teleport", "SYMPTOM:teleport_agent_failure"]
+    provides: ["teleport_version", "teleport_service_state", "teleport_config_validity", "teleport_roles", "teleport_connectivity", "teleport_errors", "teleport_kube_agent_state"]
+
   # ============================================================
   # KUBERNETES (conditional)
   # ============================================================
@@ -449,6 +459,7 @@ workflows:
       - "firewall_analysis"
       - "web_server_analysis"
       - "etcd_analysis"
+      - "teleport_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
       - "docker_analysis"
@@ -484,6 +495,7 @@ workflows:
       - "firewall_analysis"
       - "web_server_analysis"
       - "etcd_analysis"
+      - "teleport_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
       - "log_analysis"

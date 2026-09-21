@@ -222,6 +222,16 @@ skills:
     triggers: ["PRESENT:traefik"]
     provides: ["traefik_providers", "entrypoints", "middlewares", "tls_analysis"]
 
+  - id: "gloo_gateway_analysis"
+    file: "platform/gloo-gateway-analysis.md"
+    category: "ingress"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["kubernetes_analysis"]
+    triggers: ["PRESENT:gloo", "PRESENT:gloo-gateway", "NAMESPACE:gloo-system"]
+    provides: ["gloo_components", "gloo_routes", "gloo_upstreams", "gloo_proxy_status", "gloo_events"]
+
   # ============================================================
   # DATABASE (conditional)
   # ============================================================
@@ -468,6 +478,7 @@ workflows:
       - "kubernetes_analysis"
       - "ingress_nginx_analysis"
       - "traefik_analysis"
+      - "gloo_gateway_analysis"
       - "database_analysis"
       - "db_tuning_analysis"
       - "configuration_analysis"

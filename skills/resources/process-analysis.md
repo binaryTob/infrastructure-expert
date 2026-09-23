@@ -7,6 +7,7 @@ phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory"]
+triggers: []
 provides: ["top_cpu_processes", "top_mem_processes", "zombies", "orphans", "root_processes"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/processes" }

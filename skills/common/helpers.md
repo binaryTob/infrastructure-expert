@@ -7,27 +7,14 @@ Ejecucion **read-only** sobre SSH. Nada instala, reinicia ni modifica nada en el
 
 ## MODULE:helpers.ssh_run
 
-Ejecuta un comando remoto y registra evidencia con `timestamp | host | command | exit_code | output`.
-No guarda secretos; pasa la salida por `helpers.redact` antes de escribir.
+Unico punto de entrada para comandos remotos. Delega captura y redaccion al wrapper
+canonico; ninguna skill implementa su propio SSH ni escribe salida remota directamente.
 
 ```bash
-# Uso: ssh_run "<evidence-path>" "<remote-command>"
+# Uso: ssh_run <evidence-id> <category> <L1|L2> <remote-command>
 ssh_run() {
-  local out="$1" cmd="$2" ts host ec body
-  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  host="$(ssh -o BatchMode=yes {{SSH_TARGET}} 'hostname -s' 2>/dev/null || echo unknown)"
-  ec=0
-  body="$(ssh -o BatchMode=yes {{SSH_TARGET}} "$cmd" 2>&1)" || ec=$?
-  {
-    echo "Timestamp: $ts"
-    echo "Host: $host"
-    echo "Command: $cmd"
-    echo "Exit code: $ec"
-    echo
-    printf '%s\n' "$body"
-    echo "----"
-  } >> "$out"
-  printf '%s\n' "$body"
+  local evidence_id="$1" category="$2" level="$3" cmd="$4"
+  scripts/ssh_exec.sh "$evidence_id" "$category" "$level" "$cmd" "{{RUN_DIR}}/evidencia"
 }
 ```
 
@@ -35,17 +22,9 @@ ssh_run() {
 
 ## MODULE:helpers.redact
 
-Redacta datos sensibles de la evidencia ANTES de escribir a disco.
-
-```bash
-redact() {
-  sed -E \
-    -e 's/(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)["\x27 :=]+[^\n]*/\1=[REDACTED]/Ig' \
-    -e 's/(-----BEGIN [A-Z ]*PRIVATE KEY-----)([\s\S]*?)(-----END [A-Z ]*PRIVATE KEY-----)/\1 [REDACTED] \3/Ig' \
-    -e 's#(postgres|mysql|mongodb|redis)(://[^:@/]+:)[^@]+@#\1\2[REDACTED]@#gI' \
-    -e 's/(Bearer|Basic) [A-Za-z0-9._\-]+/\1 [REDACTED]/Ig'
-}
-```
+La redaccion esta centralizada en `scripts/redact.py` y es invocada por
+`scripts/ssh_exec.sh` antes de persistir evidencia. No duplicar expresiones regulares
+en skills: las implementaciones parciales divergen y pueden filtrar secretos.
 
 ---
 
@@ -56,7 +35,7 @@ El workflow usa esto para decidir que skills ejecutar y cuales SKIPear.
 
 ```bash
 detect_components() {
-  ssh -o BatchMode=yes {{SSH_TARGET}} 'for c in systemctl docker docker-compose kubectl helm crictl \
+  ssh_run discovery-components discovery L1 'for c in systemctl docker docker-compose kubectl helm crictl \
     nginx apache2 httpd apachectl traefik psql mysql mariadb redis-cli mongod node pm2 java python3 go \
     iostat vmstat mpstat pidstat iotop sar tcpdump; do
       command -v "$c" >/dev/null 2>&1 && echo "PRESENT:$c" || echo "ABSENT:$c"
@@ -67,7 +46,6 @@ detect_components() {
     ss -tulpn 2>/dev/null | grep -qE ":80 |:443 |:8080 |:8443 " && echo "PRESENT:http_server"
     [ -d /etc/letsencrypt/live ] && echo "PRESENT:letsencrypt"
     command -v certbot >/dev/null 2>&1 && echo "PRESENT:certbot"
-    grep -rliE "adapter: (postgresql|mysql|mysql2)|DATABASE_URL" /opt /home /root /srv /app --include="*.yml" --include="*.yaml" --include=".env*" 2>/dev/null | head -1 | grep -q . && echo "PRESENT:db_config"
     [ -f /etc/os-release ] && . /etc/os-release && echo "OS:${PRETTY_NAME:-unknown}"
     systemd-detect-virt 2>/dev/null || true'
 }
@@ -81,13 +59,26 @@ Loop de snapshots temporales SIN carga artificial (solo `sleep` + medicion).
 
 ```bash
 snapshot_loop() {
-  local cmd="$1" outdir="$2" n="${SAMPLE_COUNT:-4}" iv="${SAMPLE_INTERVAL:-30}" i
+  local base_id="$1" category="$2" cmd="$3" n="${SAMPLE_COUNT:-4}" iv="${SAMPLE_INTERVAL:-30}" i
   for i in $(seq 0 "$((n-1))"); do
-    ssh_run "${outdir}/t${i}.txt" "$cmd"
+    ssh_run "${base_id}-t${i}" "$category" L2 "$cmd"
     [ "$((i+1))" -lt "$n" ] && sleep "$iv"
   done
 }
 ```
+
+El workflow coordina las series de CPU, memoria e I/O en una misma ventana temporal.
+Puede ejecutar las tres mediciones en paralelo, con maximo 3 comandos, pero nunca
+iniciar otra serie de la misma metrica ni repetir snapshots ya frescos.
+
+---
+
+## MODULE:helpers.evidence_reuse
+
+Antes de ejecutar, consultar los registros en `{{RUN_DIR}}/evidencia/`. Reusar dentro
+del mismo run solo si coinciden target, payload normalizado, parametros y privilegio.
+El primer skill topologicamente ordenado es owner del comando; consumidores posteriores
+guardan `evidence_refs`, no vuelven a ejecutarlo. No reutilizar entre runs por defecto.
 
 ---
 

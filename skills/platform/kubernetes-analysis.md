@@ -8,7 +8,7 @@ risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory"]
 triggers: ["PRESENT:kubectl"]
-provides: ["nodes", "node_runtime_health", "pods", "resource_requests_limits", "pod_restarts", "storage_classes", "rbac"]
+provides: ["nodes", "node_runtime_health", "pods", "resource_requests_limits", "pod_restarts", "storage_classes", "rbac", "ingress", "networkpolicy", "services"]
 false_positives:
   - "No kubectl access does NOT mean no cluster; if k3s/rke2/microk8s processes exist, probe manually."
 parameters:

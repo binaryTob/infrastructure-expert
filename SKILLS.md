@@ -1,6 +1,6 @@
 # SKILLS.md — Skill System
 
-A **skill** is a self-contained capability the agent can select, validate, and execute. A skill is plain text (`SKILL.md`) — it contains a YAML frontmatter header plus a command inventory and interpretation guidance. There is no executable code in a skill; the agent *reads* the skill and runs the commands through `scripts/ssh_exec.sh` (read-only SSH).
+A **skill** is a reusable, self-contained capability the agent can select, validate, and execute. A skill is plain text (`*.md`) containing YAML frontmatter, a command inventory and interpretation guidance. Product discovery alone does not justify a skill. The agent reads command blocks as remote payload descriptions and executes them only through `scripts/ssh_exec.sh`.
 
 ## Directory layout
 
@@ -102,18 +102,29 @@ Read-only. All blocks are L1 or L2.
 
 1. After global discovery, build the inventory of present technologies.
 2. For each skill in `_index.yaml`, check `depends_on` and `triggers`.
-3. Select skills where prerequisites are satisfied by current evidence.
-4. Run `discovery` -> `tests` -> `interpretation` for each selected skill.
-5. If a technology is present but has no skill -> **generate one** (per `_template.md`), validate against `_schema.yaml`, run it, persist it.
+3. Add transitive dependencies, topologically order the result, then select skills whose triggers match current evidence.
+4. Run each selected skill once, reusing fresh evidence owned by earlier skills.
+5. Diagnose-only skills require a symptom or anomaly marker; technology presence alone selects posture/inventory analysis only.
+6. If no existing skill answers a concrete question, use a bounded ad-hoc check first. Persist a new skill only if it passes the full creation gate in `WORKFLOW.md`.
 
-## Adding / generating a skill
+## Adding a skill
 
-To add manually: create the folder + `SKILL.md` following the schema and `_template.md`. Add an entry in `_index.yaml`.
+Before adding a skill, document why generic evidence and an ad-hoc check are insufficient, the expected reuse across targets/runs, and the existing skills reviewed for overlap. A one-product inventory check, one-off incident command or convenience wrapper is not a skill.
 
-To generate dynamically during a run, see `WORKFLOW.md` step 6 "dynamic skill generation".
+When the gate passes, create `skills/<area>/<skill>.md` following `_template.md`, add it to `_index.yaml`, validate both files, and execute it once through `scripts/ssh_exec.sh`. `_index.yaml` is authoritative for dependencies, triggers, phase, risk and provided evidence.
+
+Trigger semantics:
+- `depends_on` entries are AND and must complete first.
+- Multiple `triggers` are OR.
+- Empty `triggers` means unconditional only within a workflow's candidate set.
+- `PRESENT:` and `SERVICE:` select posture analysis; `SYMPTOM:` and `CONDITION:` gate diagnostic escalation.
+- `[requires:...]` applies to one command block and is evaluated immediately before execution.
 
 ## Anti-patterns (forbidden)
 
 - A skill that only contains `TODO` / placeholder text. Every persisted skill is functional.
 - A skill whose commands mutate the host (Level 3) — such steps must instead be proposed under `remediation_template` with an approval gate.
 - Hard-coding host/IP/credentials in a skill. A skill is reusable across servers; only `config/target.json` is host-specific.
+- A skill created only because a new product or process name was discovered.
+- A skill that repeats commands or evidence already owned by another skill instead of consuming that evidence.
+- Direct `ssh`, `tee` or redirection of unredacted remote output during execution; all remote commands use `scripts/ssh_exec.sh`.

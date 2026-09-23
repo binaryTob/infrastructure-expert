@@ -6,7 +6,8 @@ category: "logging"
 phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
-depends_on: ["system_inventory"]
+depends_on: ["system_inventory", "disk_analysis"]
+triggers: []
 provides: ["journal_errors", "oom_in_logs", "disk_errors", "log_disk_usage"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/logs" }

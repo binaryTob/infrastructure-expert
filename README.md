@@ -81,7 +81,7 @@ GENERATE FINDINGS + REMEDIATIONS
 GENERATE HTML REPORT -> PRINT EXECUTIVE SUMMARY
 ```
 
-If a technology is detected that has no corresponding skill, the agent **dynamically generates one**, runs it, and persists it for future audits.
+If a technology has no dedicated skill, the agent first reuses generic capabilities or runs a bounded read-only ad-hoc check. It persists a new skill only when the capability is necessary, non-overlapping, host-agnostic, validated, and expected to be reused across targets or runs.
 
 ## Repository structure
 
@@ -100,7 +100,7 @@ infrastructure-expert/
 ├── scripts/               <- ssh_exec.sh, redact, run_id, gen_report
 ├── lib/
 │   └── severity.md        <- severity matrix
-├── skills/                <- 27 skills in 11 categories
+├── skills/                <- curated capabilities; count derived from _index.yaml
 │   ├── _index.yaml        <- master catalog
 │   ├── _schema.yaml       <- skill contract
 │   ├── _template.md       <- canonical template
@@ -121,7 +121,9 @@ infrastructure-expert/
 └── reportes/              <- scan data + reports (gitignored)
 ```
 
-## Available skills (22)
+## Representative skills
+
+`skills/_index.yaml` is the complete source of truth. This table highlights the core capabilities only; do not use it for selection or counts.
 
 | Skill | Category | Phase | Trigger |
 |-------|----------|-------|---------|
@@ -141,32 +143,35 @@ infrastructure-expert/
 | security-analysis | security | analyze | always |
 | configuration-analysis | configuration | analyze | always |
 | log-analysis | logging | analyze | depends on disk |
-| reliability-analysis | reliability | analyze | PRESENT:kubectl |
+| reliability-analysis | reliability | analyze | workflow candidate + dependencies |
 | observability-analysis | observability | analyze | always |
 | backup-analysis | backup | analyze | always |
 | capacity-analysis | capacity | correlate | depends on 5 previous |
 | optimization-analysis | optimization | optimize | depends on capacity |
-| migration-assessment | migration | assess | always |
+| migration-assessment | migration | assess | OBJECTIVE:migration |
 
 ## Workflows
 
-| Workflow | Skills | Description |
-|----------|--------|-------------|
-| `full` | 22 | Complete infrastructure analysis |
-| `quick` | 9 | Fast health triage |
-| `discovery` | 4 | Discovery and inventory only |
-| `container` | 8 | Container host focus |
-| `security` | 7 | Security audit |
+| Workflow | Selection | Description |
+|----------|-----------|-------------|
+| `full` | catalog candidates + triggers | Complete evidence-driven analysis |
+| `quick` | minimal candidates + dependencies | Fast health triage |
+| `discovery` | 4 base capabilities | Discovery and inventory only |
+| `container` | Docker/K8s candidates + dependencies | Container host focus |
+| `security` | security candidates + dependencies | Security audit |
+
+Counts are derived from `skills/_index.yaml`; conditional and diagnostic skills are skipped unless their trigger is satisfied.
 
 ## Creating a skill
 
-See `SKILLS.md` and `skills/_template.md`. Create `skills/<area>/<skill>.md`:
+Do not create a skill merely because a technology was discovered. First use existing evidence, a generic skill, or a bounded ad-hoc check. Only after the creation gate in `WORKFLOW.md` passes, create `skills/<area>/<skill>.md`:
 
 1. Copy `skills/_template.md` -> `skills/<area>/<new-skill>.md`.
 2. Fill frontmatter (id, name, category, phase, risk, depends_on, provides, triggers, parameters, output).
 3. Write commands (with `[risk:ro|info|probe] [mode:auto]` tags).
 4. Write analysis, false positives, thresholds, evidence, security.
 5. Add entry in `skills/_index.yaml` under `skills:` and optional workflow.
+6. Run `python3 scripts/validate_catalog.py`.
 
 ## Requirements
 

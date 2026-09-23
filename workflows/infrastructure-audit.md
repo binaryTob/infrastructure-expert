@@ -50,17 +50,23 @@ GENERATE REPORT -> PRINT EXECUTIVE SUMMARY
 6. **Redaccion de secretos.** Los secretos se *detectan y reportan como metadata* (ubicacion, tipo, riesgo). Los valores se redactan antes de cualquier salida.
 7. **No hardcodear servidores.** Cero `if hostname==`. Toda decision por deteccion de componentes.
 8. **Anti-falsos-positivos.** 1 snapshot no es tendencia. Usar `SAMPLE_COUNT >= 4` para inferencias.
+9. **Reusar evidencia.** Una skill consume evidencia fresca de sus dependencias; no repite comandos para obtener la misma vista.
+10. **Diagnostico bajo demanda.** La presencia de una tecnologia habilita postura/inventario, no troubleshooting, logs profundos ni forense sin sintoma o anomalia.
+11. **Skills excepcionales.** Tecnologia sin soporte -> skill generica o check ad-hoc acotado. Solo persistir una skill si supera el gate completo de `WORKFLOW.md`.
+12. **Concurrencia acotada.** Maximo 3 comandos L1 livianos e independientes; serializar scans globales, logs, DB, dumps de cluster y pruebas del mismo subsistema.
 
 ## Modos
 
-| Modo | Skills | Descripcion |
-|------|--------|-------------|
-| `full` | 27 skills | Analisis completo |
-| `quick` | 13 skills | Triage rapido |
-| `discovery` | 4 skills | Solo descubrimiento e inventario |
-| `container` | 13 skills | Host de contenedores |
-| `security` | 7 skills | Auditoria de seguridad |
-| `forensic` | 35 skills | Investigacion forense de robo de credenciales |
+| Modo | Seleccion | Descripcion |
+|------|-----------|-------------|
+| `full` | candidatos de `_index.yaml` + triggers | Analisis completo, condicionado por evidencia |
+| `quick` | conjunto minimo + dependencias | Triage rapido |
+| `discovery` | inventario, systemd, procesos, red | Solo descubrimiento e inventario |
+| `container` | candidatos Docker/K8s + dependencias | Host de contenedores; diagnostico solo ante anomalías |
+| `security` | postura de seguridad + dependencias | Auditoria de seguridad |
+| `forensic` | candidatos forenses + dependencias | Solo con objetivo/indicadores forenses explicitos |
+
+Los conteos no se hardcodean: se derivan del catalogo y pueden cambiar. La secuencia del modo es un conjunto candidato; el agente agrega dependencias, ordena topologicamente y aplica triggers antes de ejecutar.
 
 ## Directorio de reportes
 
@@ -71,14 +77,11 @@ Toda la evidencia y reportes se guardan en `reportes/<run-id>/`:
 - `reportes/<run-id>/graph.yaml` — grafo de infraestructura
 - `reportes/<run-id>/informe-<run-id>.html` — reporte HTML offline
 
-## Dynamic skill generation
+## Tecnologia sin skill
 
-Si se detecta una tecnologia sin skill correspondiente:
-1. Identificar la tecnologia (binario, version, config path, units).
-2. Crear `skills/<area>/<tech>/SKILL.md` segun el schema de `_template.md`.
-3. Validar schema contra `_schema.yaml`.
-4. Ejecutar (L1/L2 solamente), capturar evidencia.
-5. Persistir el `SKILL.md` para reuso.
+No crear una skill por presencia de producto. Registrar la tecnologia en inventario, reutilizar skills genericas y, si queda una pregunta concreta, ejecutar un check ad-hoc L1/L2 acotado mediante `scripts/ssh_exec.sh`.
+
+Persistir una skill solo cuando sea necesaria para el objetivo actual, reutilizable entre hosts/runs, no se solape con capacidades existentes, use interfaces estables, minimice comandos y supere validacion + ejecucion. Ver el gate vinculante en `WORKFLOW.md`.
 
 ## Safety levels (ver SAFETY.md)
 

@@ -114,7 +114,7 @@ skills:
     execution_mode: "auto"
     depends_on: ["system_inventory", "network_analysis"]
     triggers: ["PRESENT:apache2", "PRESENT:httpd", "PRESENT:nginx", "PRESENT:haproxy", "PRESENT:http_server"]
-    provides: ["webserver_engine", "vhosts", "proxy_upstream_map", "proxy_status", "upstream_health"]
+    provides: ["webserver_engine", "vhosts", "proxy_upstream_map", "proxy_status", "upstream_health", "tcp_backend_health"]
 
   - id: "tls_certificate_analysis"
     file: "platform/tls-certificate-analysis.md"
@@ -147,7 +147,7 @@ skills:
     execution_mode: "auto"
     depends_on: ["system_inventory"]
     triggers: ["PRESENT:docker"]
-    provides: ["containers", "container_stats", "images", "volumes", "container_limits"]
+    provides: ["containers", "container_stats", "container_state_limits", "images", "volumes"]
 
   - id: "docker_troubleshooting"
     file: "platform/docker-troubleshooting.md"
@@ -156,7 +156,7 @@ skills:
     risk: "readonly"
     execution_mode: "auto"
     depends_on: ["docker_analysis"]
-    triggers: ["PRESENT:docker"]
+    triggers: ["CONDITION:docker_container_failed", "CONDITION:docker_restart_loop", "CONDITION:docker_health_unhealthy", "SYMPTOM:container_failure", "SYMPTOM:docker_dns_failure"]
     provides: ["container_exit_codes", "container_health_status", "container_restart_policies", "container_dns_config", "docker_events_detail"]
 
   - id: "container_log_analysis"
@@ -166,13 +166,13 @@ skills:
     risk: "readonly"
     execution_mode: "auto"
     depends_on: ["docker_analysis", "docker_troubleshooting"]
-    triggers: ["PRESENT:docker"]
+    triggers: ["CONDITION:docker_container_failed", "CONDITION:docker_restart_loop", "CONDITION:docker_health_unhealthy", "SYMPTOM:container_failure"]
     provides: ["container_error_logs", "container_crash_logs", "container_api_errors"]
 
   - id: "etcd_analysis"
     file: "platform/etcd-analysis.md"
     category: "etcd"
-    phase: "diagnose"
+    phase: "analyze"
     risk: "readonly"
     execution_mode: "auto"
     depends_on: ["system_inventory", "network_analysis"]
@@ -182,7 +182,7 @@ skills:
   - id: "teleport_analysis"
     file: "platform/teleport-analysis.md"
     category: "teleport"
-    phase: "diagnose"
+    phase: "analyze"
     risk: "readonly"
     execution_mode: "auto"
     depends_on: ["system_inventory", "systemd_analysis", "network_analysis"]
@@ -254,6 +254,16 @@ skills:
     depends_on: ["database_analysis"]
     triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:psql", "PRESENT:mysql"]
     provides: ["pg_settings", "pg_buffers", "pg_connections", "pg_wal", "my_cnf", "innodb_buffer", "my_connections", "slow_queries", "index_usage", "vacuum_status"]
+
+  - id: "patroni_analysis"
+    file: "platform/patroni-analysis.md"
+    category: "patroni"
+    phase: "analyze"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["system_inventory", "systemd_analysis", "network_analysis", "database_analysis"]
+    triggers: ["PRESENT:patroni", "SERVICE:patroni", "PRESENT:patronictl"]
+    provides: ["patroni_cluster_state", "patroni_restapi_exposure", "patroni_dcs_endpoints", "patroni_dcs_health", "pg_role", "pg_replication_lag"]
 
   # ============================================================
   # SECURITY
@@ -448,6 +458,7 @@ skills:
     risk: "advisory"
     execution_mode: "auto"
     depends_on: ["system_inventory"]
+    triggers: ["OBJECTIVE:migration"]
     provides: ["migration_readiness", "compatibility_matrix", "migration_phases", "migration_plan"]
 
 # ============================================================
@@ -481,6 +492,7 @@ workflows:
       - "gloo_gateway_analysis"
       - "database_analysis"
       - "db_tuning_analysis"
+      - "patroni_analysis"
       - "configuration_analysis"
       - "log_analysis"
       - "security_analysis"
@@ -501,6 +513,7 @@ workflows:
       - "memory_analysis"
       - "disk_analysis"
       - "io_analysis"
+      - "process_analysis"
       - "network_analysis"
       - "dns_analysis"
       - "firewall_analysis"
@@ -526,6 +539,15 @@ workflows:
     description: "Enfocado en hosts con contenedores (Docker/K8s)"
     sequence:
       - "system_inventory"
+      - "systemd_analysis"
+      - "cpu_analysis"
+      - "memory_analysis"
+      - "disk_analysis"
+      - "io_analysis"
+      - "process_analysis"
+      - "network_analysis"
+      - "dns_analysis"
+      - "firewall_analysis"
       - "docker_analysis"
       - "docker_troubleshooting"
       - "container_log_analysis"
@@ -533,10 +555,6 @@ workflows:
       - "kubernetes_analysis"
       - "reliability_analysis"
       - "observability_analysis"
-      - "process_analysis"
-      - "network_analysis"
-      - "dns_analysis"
-      - "firewall_analysis"
       - "web_server_analysis"
       - "tls_certificate_analysis"
       - "http_health_analysis"
@@ -548,6 +566,7 @@ workflows:
     sequence:
       - "system_inventory"
       - "systemd_analysis"
+      - "disk_analysis"
       - "process_analysis"
       - "network_analysis"
       - "dns_analysis"
@@ -562,26 +581,23 @@ workflows:
     sequence:
       - "system_inventory"
       - "systemd_analysis"
+      - "disk_analysis"
       - "process_analysis"
       - "network_analysis"
       - "security_analysis"
       - "ssh_hardening_analysis"
       - "credential_exposure_analysis"
       - "git_credential_analysis"
+      - "docker_analysis"
       - "docker_secrets_analysis"
       - "filesystem_forensics"
       - "audit_logs_forensics"
       - "web_secret_exposure"
       - "network_exfiltration"
-      - "docker_analysis"
       - "web_server_analysis"
       - "tls_certificate_analysis"
       - "database_analysis"
       - "log_analysis"
-      - "cpu_analysis"
-      - "memory_analysis"
-      - "disk_analysis"
-      - "io_analysis"
       - "configuration_analysis"
       - "reliability_analysis"
       - "observability_analysis"

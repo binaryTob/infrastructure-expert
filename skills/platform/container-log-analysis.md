@@ -7,27 +7,28 @@ phase: "diagnose"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["docker_analysis", "docker_troubleshooting"]
-triggers: ["PRESENT:docker"]
+triggers: ["CONDITION:docker_container_failed", "CONDITION:docker_restart_loop", "CONDITION:docker_health_unhealthy", "SYMPTOM:container_failure"]
 provides: ["container_error_logs", "container_crash_logs", "container_api_errors"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/docker" }
   SSH_TARGET: { type: "string", required: true }
   LOG_TAIL_LINES: { type: "integer", default: 50 }
+  CONTAINER_IDS: { type: "string", required: true, description: "Space-separated IDs/names from Docker evidence; each must match ^[A-Za-z0-9_.-]+$" }
 output: { format: "yml", schema: "output_schema" }
 ---
 # Container Log Analysis
 
 ## Objective
-Inspect recent logs from ALL running containers to detect application-level errors,
-crashes, timeouts, DNS failures, and API errors. Focuses on containers that are
-running but potentially unhealthy.
+Inspect bounded recent logs only from containers implicated by prior evidence. Detect
+application errors, crashes, timeouts, DNS failures and API errors without scanning
+unrelated workloads.
 
 ## Commands
 
-### Logs from all running containers (recent errors only)
+### Error summary from implicated containers
 ```bash
 # [risk:probe] [mode:auto]
-ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); errors=$(docker logs --tail {{LOG_TAIL_LINES}} $c 2>&1 | grep -iE "error|fail|timeout|refused|unreachable|EAI_AGAIN|ENOTFOUND|ECONNREFUSED|500|502|503|504|SIGTERM|SIGKILL|OOM|cannot|could not|unable" | tail -5); [ -n "$errors" ] && echo "=== $name ===" && echo "$errors"; done'
+ssh {{SSH_TARGET}} 'for c in {{CONTAINER_IDS}}; do echo "=== $c ==="; docker logs --tail {{LOG_TAIL_LINES}} "$c" 2>&1 | grep -iE "error|fail|timeout|refused|unreachable|EAI_AGAIN|ENOTFOUND|ECONNREFUSED|500|502|503|504|SIGTERM|SIGKILL|OOM|cannot|could not|unable" | tail -10; done'
 ```
 
 ### Inspect specific container logs (full tail)
@@ -37,23 +38,8 @@ ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspe
 ssh {{SSH_TARGET}} 'docker logs --tail {{LOG_TAIL_LINES}} <container-name> 2>&1'
 ```
 
-### Container resource limits (memory/CPU)
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); mem=$(docker inspect --format "{{.HostConfig.Memory}}" $c); cpus=$(docker inspect --format "{{.HostConfig.NanoCpus}}" $c); mem_sw=$(docker inspect --format "{{.HostConfig.MemorySwap}}" $c); echo "$name mem_limit=${mem:-0} cpu_nano=${cpus:-0} mem_swap=${mem_sw:-0}"; done | sort'
-```
-
-### Docker daemon config
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'echo "=== DAEMON.JSON ==="; cat /etc/docker/daemon.json 2>/dev/null || echo "no-daemon-json"; echo; echo "=== DOCKER VERSION ==="; docker version --format "{{.Server.Version}}" 2>/dev/null; echo; echo "=== DOCKER STORAGE ==="; docker system df -v 2>/dev/null | head -20'
-```
-
-### Container restart counts (instability indicator)
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); rc=$(docker inspect --format "{{.RestartCount}}" $c); [ "$rc" -gt 0 ] && echo "$name restart_count=$rc"; done | sort -t= -k2 -nr'
-```
+Resource limits, restart counts, health and daemon inventory are consumed from
+`docker_analysis` and `docker_troubleshooting`; do not query them again here.
 
 ## Analysis
 - **Logs grep on error keywords**: Find failing dependency calls (EAI_AGAIN, ECONNREFUSED).
@@ -63,7 +49,7 @@ ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspe
 - **Daemon DNS not configured**: Docker copies host resolv.conf (legacy mode) — vulnerable to host DNS changes (VPNs, Tailscale, systemd-resolved).
 
 ## Evidence
-- `container-errors.yml`, `container-resources.yml`, `container-restart-counts.yml`
+- `container-errors.yml`; resource/restart context is referenced from upstream evidence.
 
 ## Security
 Read-only. Never modify container config automatically.

@@ -55,8 +55,9 @@ agregar un síntoma nuevo es editar `diagnosis.yaml`.
    evidencia almacenado.
 3. **Anti-falso-positivo.** Una hipótesis es una *hipótesis* hasta que la prueba
    confirmatoria (no destructiva) la valida. 1 snapshot no es tendencia.
-4. **Skills, no código.** Cada "how" de `diagnosis.yaml` referencia skills existentes;
-   si un síntoma necesita un skill que no existe, generarlo (WORKFLOW.md paso 6).
+4. **Skills existentes primero.** Cada "how" de `diagnosis.yaml` referencia capacidades
+   existentes. Si falta una comprobacion, ejecutar un check ad-hoc L1/L2 acotado; crear
+   una skill solo si supera el gate de necesidad y reutilizacion de `WORKFLOW.md`.
 5. **No asumir arquitectura.** El 502 puede ser Apache, nginx, o un ingress de K8s;
    dejar que `web_server_analysis` / `ingress_nginx_analysis` lo descubran.
 

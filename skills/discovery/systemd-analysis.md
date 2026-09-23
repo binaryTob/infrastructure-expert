@@ -52,22 +52,10 @@ ssh {{SSH_TARGET}} 'systemctl list-timers --all --no-pager --no-legend 2>/dev/nu
 ssh {{SSH_TARGET}} 'systemctl list-units --type=socket --state=listening --no-pager --no-legend 2>/dev/null'
 ```
 
-### Per-unit memory + tasks (cgroup)
+### Per-unit resources and restarts (single inventory pass)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'for u in $(systemctl list-units --type=service --state=running --no-legend 2>/dev/null | awk "{print \$1}" | grep "\.service"); do mem=$(systemctl show "$u" -p MemoryCurrent 2>/dev/null | cut -d= -f2); tsk=$(systemctl show "$u" -p TasksCurrent 2>/dev/null | cut -d= -f2); echo "$u mem=${mem:-0} tasks=${tsk:-0}"; done | sort -t= -k2 -nr | head -20'
-```
-
-### Restart counts
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'systemctl list-units --type=service --state=running --no-legend 2>/dev/null | awk "{print \$1}" | while read u; do n=$(systemctl show "$u" -p NRestarts 2>/dev/null | cut -d= -f2); [ "${n:-0}" -gt 0 ] && echo "$u restarts=$n"; done'
-```
-
-### CPU per unit
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'for u in $(systemctl list-units --type=service --state=running --no-legend 2>/dev/null | awk "{print \$1}"); do cpu=$(systemctl show "$u" -p CPUUsageNSec 2>/dev/null | cut -d= -f2); echo "$u cpu_ns=${cpu:-0}"; done | sort -t= -k2 -nr | head -15'
+ssh {{SSH_TARGET}} 'systemctl list-units --type=service --state=running --no-legend 2>/dev/null | awk "{print \$1}" | while read -r u; do values=$(systemctl show "$u" -p MemoryCurrent -p TasksCurrent -p NRestarts -p CPUUsageNSec 2>/dev/null | tr "\n" " "); echo "$u $values"; done'
 ```
 
 ## Analysis
@@ -79,7 +67,7 @@ ssh {{SSH_TARGET}} 'for u in $(systemctl list-units --type=service --state=runni
 
 ## Evidence
 - `running.txt`, `enabled.txt`, `failed.txt`, `timers.txt`, `sockets.txt`
-- `unit-memory.txt`, `restarts.txt`, `unit-cpu.txt`
+- `unit-resources.txt` (memory, tasks, restarts and CPU from one unit inventory pass)
 
 ## Security
 Read-only.

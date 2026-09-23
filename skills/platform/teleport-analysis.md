@@ -3,7 +3,7 @@ id: "teleport_analysis"
 name: "Teleport Agent Analysis"
 version: "1.0"
 category: "teleport"
-phase: "diagnose"
+phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory", "systemd_analysis", "network_analysis"]

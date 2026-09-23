@@ -7,6 +7,7 @@ phase: "optimize"
 risk: "advisory"
 execution_mode: "auto"
 depends_on: ["capacity_analysis"]
+triggers: []
 provides: ["optimization_candidates", "ranked_recommendations"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/optimization" }

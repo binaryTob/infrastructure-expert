@@ -38,10 +38,7 @@ ssh {{SSH_TARGET}} 'iostat -x 1 2 2>/dev/null || echo "iostat ausente"'
 ### iowait temporal series
 ```bash
 # [risk:probe] [mode:auto]
-for i in $(seq 0 {{SAMPLE_COUNT}}); do
-  { echo "T$i $(date -u +%T)"; ssh {{SSH_TARGET}} 'cat /proc/stat | head -1; vmstat 1 2 2>/dev/null | tail -1'; } >> {{OUTPUT_DIR}}/trend.txt
-  sleep {{SAMPLE_INTERVAL}}
-done
+snapshot_loop "io-trend" "io" 'head -1 /proc/stat; vmstat 1 2 2>/dev/null | tail -1'
 ```
 
 ### Per-process I/O (iotop or pidstat)

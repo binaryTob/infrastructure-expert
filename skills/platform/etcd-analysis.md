@@ -3,7 +3,7 @@ id: "etcd_analysis"
 name: "etcd Cluster Analysis"
 version: "1.0"
 category: "etcd"
-phase: "diagnose"
+phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory", "network_analysis"]

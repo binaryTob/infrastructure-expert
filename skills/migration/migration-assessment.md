@@ -7,7 +7,7 @@ phase: "assess"
 risk: "advisory"
 execution_mode: "auto"
 depends_on: ["system_inventory"]
-triggers: []
+triggers: ["OBJECTIVE:migration"]
 provides: ["migration_readiness", "compatibility_matrix", "migration_phases", "migration_plan"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/migration" }

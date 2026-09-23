@@ -30,13 +30,28 @@ Also data-plane edges: `port -> process -> service -> container -> app`.
 
 ## 3. Select skills
 
-For every skill in `skills/_index.yaml`, check `applies_when`/`triggers`. Select the matching set. Conditional skills (docker, kubernetes, database, traefik) run only if their trigger is detected.
+`skills/_index.yaml` is the source of truth for selection. A workflow mode defines a candidate set, not a license to run every entry.
 
-If a present technology has **no** skill -> generate one (see step 6).
+1. Add the transitive `depends_on` closure for every candidate.
+2. Topologically order skills so all dependencies run first.
+3. Evaluate `triggers` only after prerequisite evidence exists. Multiple triggers are OR; dependencies are AND; an empty trigger list means unconditional within the selected mode.
+4. Evaluate block-level `[requires:...]` immediately before the block.
+5. Run each skill at most once unless it explicitly declares a resampling policy.
+6. Record every skip with a concrete reason: trigger absent, dependency unavailable, insufficient privilege, L2 disabled, or not required by the objective.
+
+An unsupported technology is an inventory fact, not a skill-generation trigger. Continue with step 6.
 
 ## 4. Run analysis (per selected skill)
 
-Run the skill's `discovery` then `tests` (all L1/L2). Write evidence records into `reportes/<run-id>/<skill>/`. For each, run `interpretation` rules -> candidate findings.
+Run the skill's `discovery` then `tests` (all L1/L2) through `scripts/ssh_exec.sh`. Write evidence records into `reportes/<run-id>/evidencia/`. Reuse an evidence record from the current run when target, command parameters and privilege match; do not rerun a command merely because another skill references it. Do not reuse evidence across runs by default.
+
+Execution budget:
+- Parallelize at most 3 independent lightweight L1 commands.
+- CPU, memory and I/O temporal probes may run concurrently as one coordinated sampling window.
+- Serialize host-wide `find`, recursive `grep`, root `du`, container logs, cluster-wide dumps, database queries and temporal probes that touch the same subsystem.
+- Never parallelize across unmet dependencies or write two commands to the same evidence id.
+
+For each skill, apply its interpretation rules to the stored evidence and produce candidate findings.
 
 ## 5. Find anomalies -> hypotheses -> verify
 
@@ -48,18 +63,41 @@ Evidence?  Context?  Configuration?  Exposure?  Impact?
 
 If any is missing -> it's a HYPOTHESIS, run a confirmatory non-destructive test. Only confirmed ones become RISK findings. Update `graph.yaml` with what was learned.
 
-Reassessment: a new edge may select **additional** skills (loop back to step 3).
+Reassessment: a new edge may select additional skills or bounded ad-hoc checks (loop back to step 3). Stop at a fixed point: no new component, evidence key, graph edge or testable hypothesis. Do not repeat a skill or loop only to gather more data without a stated resampling policy.
 
-## 6. Dynamic skill generation
+## 6. Unsupported technology and skill creation gate
 
-Trigger: present technology, no `SKILL.md`. Steps:
+Use this order:
 
-1. Identify the technology (binary, version, config path, units).
-2. Draft `skills/<area>/<tech>/SKILL.md` per `_template.md` schema.
-3. Validate against `_schema.yaml`.
-4. Run it (L1/L2 only), capture evidence.
-5. Persist the `SKILL.md` for reuse.
-6. Record under "New Skills Generated" in the report.
+1. Reuse evidence already collected by discovery or another skill.
+2. Use an existing generic skill for service, process, network, configuration, logs, security, reliability, observability or backup posture.
+3. If the current objective still has a concrete evidence gap, run the smallest bounded L1/L2 ad-hoc check through `scripts/ssh_exec.sh` and record it in `skills-used.yaml` under `ad_hoc_checks`.
+4. Persist no new skill unless **all** criteria below are true.
+
+Creation gate (all required):
+- **Necessary now:** a current objective or verified hypothesis cannot be answered safely with existing evidence, generic skills or a bounded ad-hoc check.
+- **Reusable:** the capability is expected to recur across targets/runs or applies to a reusable class of systems, not just one installed product instance.
+- **Distinct:** its evidence contract and interpretation do not substantially overlap an existing skill.
+- **Stable:** triggers, commands and interpretation are host-agnostic and based on stable interfaces.
+- **Efficient:** it consumes existing evidence where possible and has explicit command ownership; it does not duplicate broad scans.
+- **Complete:** it includes false-positive handling, L1/L2 safety, evidence outputs and actionable interpretation.
+- **Validated:** schema and catalog validation pass, dependencies are satisfiable, and at least one successful L1/L2 execution verifies the skill.
+
+If any criterion fails, do not create a skill. Record the decision as `not-reusable`, `covered-by-existing-skill`, or `insufficient-evidence`. A close call defaults to no new skill.
+
+When the gate passes, create `skills/<area>/<skill>.md`, add it to `_index.yaml`, execute it once, and record the gate rationale under `new_skills_generated`.
+
+Ad-hoc check record:
+```yaml
+ad_hoc_checks:
+  - id: stable-check-id
+    reason: concrete evidence gap
+    hypothesis: question being tested
+    safety_level: L1
+    evidence_refs: [evidence-id]
+    status: executed
+    persistence_decision: not-reusable
+```
 
 ## 7. Generate findings -> remediations
 
@@ -92,9 +130,11 @@ Self-contained offline HTML per `REPORTING.md`. Secret-free (redaction already a
 
 ## 10. Print executive summary
 
-To console: host, duration, components discovered, skills executed, new skills created, findings by severity, report path.
+To console: host, duration, components discovered, skills executed/skipped, ad-hoc checks, new skills created (normally zero), findings by severity, report path.
 
 ## Stop / approval conditions
 
-- A Level 3 action is needed -> STOP, DOCUMENT, REQUEST APPROVAL, do not proceed.
-- A confirmatory test would be destructive -> mark as unverified HYPOTHESIS, recommend manual verification.
+- Stop the whole run if target identity cannot be verified, redaction fails, or evidence cannot be stored safely.
+- If a branch needs Level 3 -> stop that branch, document the exact action and request approval; continue independent read-only branches.
+- If a confirmatory test would be destructive -> mark as unverified HYPOTHESIS and recommend manual verification.
+- Missing tools, permission denial, timeout or nonzero remote exit -> record `INSUFFICIENT_DATA`, try at most one bounded read-only fallback, then continue.

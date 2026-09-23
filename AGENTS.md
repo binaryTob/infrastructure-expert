@@ -24,6 +24,8 @@ See `SAFETY.md`.
 4. **Low false-positive rate.** An anomalous-looking port/process/config is NOT a finding until: evidence + context + exposure + impact are all evaluated.
 5. **Secret redaction.** Secrets are *detected and reported as metadata only* (location, type, risk). Values are redacted before any report/evidence output.
 6. **Migration rule.** A migration objective does NOT start with the migration plan. It starts with fully understanding the current state.
+7. **Skill economy.** Discovering a technology is never, by itself, a reason to create a skill. Reuse existing capabilities and bounded ad-hoc checks first. Persist only capabilities that are necessary, non-overlapping, host-agnostic, and expected to be reused across targets or runs.
+8. **Single execution path.** Every remote command is executed through `scripts/ssh_exec.sh`. Command blocks in skills describe remote payloads; never run their literal `ssh` examples directly or write raw output to evidence.
 
 ## How to run an audit (operator)
 
@@ -51,14 +53,14 @@ CLASSIFY -> BUILD INVENTORY -> BUILD GRAPH
 SELECT SKILLS (only those matching what was discovered)
 RUN ANALYSIS (selected skills, non-destructive tests)
 FIND ANOMALIES -> CREATE HYPOTHESES -> RUN TESTS -> VERIFY
-UPDATE GRAPH -> REASSESS (may select more skills; may generate new skills)
+UPDATE GRAPH -> REASSESS (select more skills or bounded ad-hoc checks only when new evidence requires them)
 GENERATE FINDINGS (FACT/OBSERVATION/HYPOTHESIS/RISK/RECOMMENDATION + severity + confidence)
 GENERATE REMEDIATIONS (WHAT/WHY/HOW/RISK/PRIORITY/VALIDATION/ROLLBACK)
 [if migration objective] MIGRATION ANALYSIS
 GENERATE HTML REPORT -> PRINT EXECUTIVE SUMMARY
 ```
 
-**Dynamic skill generation:** if you discover a technology with no skill directory under `skills/`, create one (following `skills/_template.md`), validate it against `skills/_schema.yaml`, run it, and persist it.
+**Skill creation is an exception, not a discovery action.** An unsupported technology is recorded in inventory, then handled with existing generic skills or a bounded L1/L2 ad-hoc check. A new skill may be persisted only if all creation-gate criteria in `WORKFLOW.md` are satisfied. Product presence alone, a one-off command, or convenience does not pass the gate.
 
 ## Repository layout
 
@@ -75,7 +77,7 @@ infrastructure-expert/
 ├── config/                <- target.json (gitignored), target.example.json
 ├── scripts/               <- SSH wrapper, redaction, report generator
 ├── lib/                   <- shared helpers (severity matrix, symptom->diagnosis map)
-├── skills/                <- one folder per capability; SKILL.md each
+├── skills/                <- reusable capabilities grouped by area
 │   ├── _index.yaml        <- master catalog
 │   ├── _schema.yaml       <- skill contract
 │   ├── _template.md       <- canonical template

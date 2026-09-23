@@ -7,7 +7,7 @@ phase: "diagnose"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["docker_analysis"]
-triggers: ["PRESENT:docker"]
+triggers: ["CONDITION:docker_container_failed", "CONDITION:docker_restart_loop", "CONDITION:docker_health_unhealthy", "SYMPTOM:container_failure", "SYMPTOM:docker_dns_failure"]
 provides: ["container_exit_codes", "container_health_status", "container_restart_policies", "container_dns_config", "docker_events_detail"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/docker" }
@@ -23,33 +23,18 @@ them, whether they have health checks, and why they aren't restarting.
 
 ## Commands
 
-### Exited containers analysis (exit codes + OOM + timing)
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'echo "=== EXITED CONTAINERS ==="; docker ps -a --filter "status=exited" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}" 2>/dev/null; echo; echo "=== EXIT CODE + OOM ANALYSIS ==="; for c in $(docker ps -a --filter "status=exited" -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); exit=$(docker inspect --format "{{.State.ExitCode}}" $c); started=$(docker inspect --format "{{.State.StartedAt}}" $c); finished=$(docker inspect --format "{{.State.FinishedAt}}" $c); oom=$(docker inspect --format "{{.State.OOMKilled}}" $c); echo "NAME=$name EXIT=$exit OOM=$oom STARTED=$started FINISHED=$finished"; done'
-```
-
-### Container restart policies
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); restart=$(docker inspect --format "{{.HostConfig.RestartPolicy.Name}}" $c); echo "$name restart=$restart"; done | sort'
-```
-
-### Container health status
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); health=$(docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" $c); echo "$name health=$health"; done | sort'
-```
+Consume `container_state_limits` from `docker_analysis` for exit codes, OOM state,
+restart counts/policies, health, timing and resource limits. Do not repeat `docker inspect`.
 
 ### DNS configuration per container
 ```bash
-# [risk:ro] [mode:auto]
+# [risk:ro] [mode:auto] [requires:SYMPTOM:docker_dns_failure]
 ssh {{SSH_TARGET}} 'echo "=== DOCKER DAEMON DNS ==="; cat /etc/docker/daemon.json 2>/dev/null || echo "no-daemon-json"; echo; echo "=== HOST RESOLV ==="; cat /etc/resolv.conf; echo; echo "=== CONTAINER DNS (sample 5) ==="; for c in $(docker ps -q 2>/dev/null | head -5); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); dns=$(docker exec $c cat /etc/resolv.conf 2>/dev/null | grep nameserver | tr "\n" " "); echo "$name -> $dns"; done'
 ```
 
 ### DNS test from containers
 ```bash
-# [risk:probe] [mode:auto]
+# [risk:probe] [mode:auto] [requires:SYMPTOM:docker_dns_failure]
 ssh {{SSH_TARGET}} 'echo "=== HOST DNS TEST ==="; nslookup google.com 2>&1 | head -3; echo; echo "=== CONTAINER DNS TEST (sample 3) ==="; for c in $(docker ps -q 2>/dev/null | head -3); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); result=$(docker exec $c nslookup google.com 2>&1 | head -3 || echo "nslookup-failed"); echo "$name: $result"; done'
 ```
 
@@ -61,7 +46,7 @@ ssh {{SSH_TARGET}} 'docker events --since 1h --until now --filter type=container
 
 ### Docker networks + subnet mapping
 ```bash
-# [risk:ro] [mode:auto]
+# [risk:ro] [mode:auto] [requires:SYMPTOM:docker_dns_failure]
 ssh {{SSH_TARGET}} 'docker network ls 2>/dev/null; echo; for net in $(docker network ls -q 2>/dev/null); do docker network inspect $net --format "{{.Name}} driver={{.Driver}} subnet={{range .IPAM.Config}}{{.Subnet}} {{end}}" 2>/dev/null; done'
 ```
 
@@ -86,7 +71,8 @@ ssh {{SSH_TARGET}} 'docker network ls 2>/dev/null; echo; for net in $(docker net
 | DNS nameserver != host DNS | 0 | 1 | >1 |
 
 ## Evidence
-- `docker-exited.yml`, `docker-restart.yml`, `docker-health.yml`, `docker-dns.yml`, `docker-events.yml`, `docker-networks.yml`
+- Reused: `docker_analysis:container_state_limits`
+- New: `docker-dns.yml`, `docker-events.yml`, `docker-networks.yml`
 
 ## Security
 Read-only. Never `docker rm`, `docker kill`, or `docker restart` automatically.

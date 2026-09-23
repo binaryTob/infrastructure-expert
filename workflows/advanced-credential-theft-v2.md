@@ -155,11 +155,8 @@ Directorio de reportes: `reportes/<run-id>/`
 | 2 | TEST | Non-destructive tests (HTTP probes) | On by default |
 | 3 | CHANGE | Mutating actions | Off — requires explicit approval |
 
-## Creación dinámica de skills
+## Tecnologias sin skill
 
-Si se detecta una tecnología sin skill correspondiente durante la investigación:
-1. Identificar la tecnología.
-2. Crear `skills/<area>/<tech>/SKILL.md` según `_template.md`.
-3. Validar contra `_schema.yaml`.
-4. Ejecutar (L1/L2 solamente).
-5. Persistir para reuso.
+No crear una skill por cada producto detectado. Reutilizar evidencia y capacidades
+forenses genericas; cubrir huecos concretos con checks ad-hoc L1/L2 acotados. Solo
+persistir una nueva skill cuando supere el gate completo de `WORKFLOW.md`.

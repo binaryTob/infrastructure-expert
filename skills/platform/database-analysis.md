@@ -7,8 +7,8 @@ phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["network_analysis"]
-triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:redis_socket"]
-provides: ["db_engine", "db_connections", "db_size", "db_settings"]
+triggers: ["PRESENT:postgresql_socket", "PRESENT:mysql_socket", "PRESENT:redis_socket", "PRESENT:psql", "PRESENT:mysql", "PRESENT:redis-cli", "PRESENT:mongod", "PRESENT:db_config"]
+provides: ["db_engine", "db_connections", "db_size", "db_settings", "db_location"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/database" }
   SSH_TARGET: { type: "string", required: true }

@@ -7,7 +7,7 @@ phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["kubernetes_analysis"]
-triggers: ["PRESENT:kubectl"]
+triggers: ["PRESENT:ingress-nginx"]
 provides: ["ingress_features", "ingress_annotations", "waf_status"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/ingress-nginx" }

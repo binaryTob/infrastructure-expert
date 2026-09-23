@@ -8,7 +8,7 @@ risk: "readonly"
 execution_mode: "auto"
 depends_on: ["system_inventory"]
 triggers: ["PRESENT:docker"]
-provides: ["containers", "container_stats", "images", "volumes", "container_limits"]
+provides: ["containers", "container_stats", "container_state_limits", "images", "volumes"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/docker" }
   SSH_TARGET: { type: "string", required: true }
@@ -33,10 +33,10 @@ ssh {{SSH_TARGET}} 'echo "=== PS ==="; docker ps --format "table {{.ID}}\t{{.Nam
 ssh {{SSH_TARGET}} 'docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}" 2>/dev/null'
 ```
 
-### Container limits
+### Container state and limits (single inspect pass)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'for c in $(docker ps -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); mem=$(docker inspect --format "{{.HostConfig.Memory}}" $c); cpus=$(docker inspect --format "{{.HostConfig.NanoCpus}}" $c); echo "$name mem_limit=${mem:-0} cpu_nano=${cpus:-0}"; done | sort'
+ssh {{SSH_TARGET}} 'ids=$(docker ps -aq 2>/dev/null); [ -n "$ids" ] && docker inspect --format "name={{.Name}} status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} restarts={{.RestartCount}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} restart_policy={{.HostConfig.RestartPolicy.Name}} mem_limit={{.HostConfig.Memory}} mem_swap={{.HostConfig.MemorySwap}} cpu_nano={{.HostConfig.NanoCpus}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}" $ids || echo "no-containers"'
 ```
 
 ### Docker info
@@ -63,13 +63,10 @@ ssh {{SSH_TARGET}} 'docker system df 2>/dev/null; echo; echo "=== VOLUMES ==="; 
 ssh {{SSH_TARGET}} 'docker events --since 24h --until now --filter type=container 2>/dev/null | tail -50 || echo "no events"'
 ```
 
-### Exited containers detail (enhanced)
-```bash
-# [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'echo "=== EXITED ==="; docker ps -a --filter "status=exited" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}" 2>/dev/null; echo; echo "=== EXIT ANALYSIS ==="; for c in $(docker ps -a --filter "status=exited" -q 2>/dev/null); do name=$(docker inspect --format "{{.Name}}" $c | cut -c2-); exit=$(docker inspect --format "{{.State.ExitCode}}" $c); oom=$(docker inspect --format "{{.State.OOMKilled}}" $c); echo "$name exit=$exit OOM=$oom"; done'
-```
-
 ## Analysis
+- Non-zero exit or OOM kill emits `CONDITION:docker_container_failed`.
+- Restart count above the contextual baseline emits `CONDITION:docker_restart_loop`.
+- Health status `unhealthy` emits `CONDITION:docker_health_unhealthy`.
 - Containers without memory limit: OOM risk under pressure.
 - Zero CPU limit: container can use all available CPU.
 - Running > 20 containers on a small machine: check resource distribution.
@@ -77,7 +74,7 @@ ssh {{SSH_TARGET}} 'echo "=== EXITED ==="; docker ps -a --filter "status=exited"
 - Old images (> 30 days, not in use): candidate for cleanup (Level 3).
 
 ## Evidence
-- `containers.txt`, `stats.txt`, `limits.txt`, `info.txt`, `images.txt`, `disk-df.txt`, `events.txt`
+- `containers.txt`, `stats.txt`, `state-limits.txt`, `info.txt`, `images.txt`, `disk-df.txt`, `events.txt`
 
 ## Security
 Read-only. Never `docker rm` or `docker prune`.

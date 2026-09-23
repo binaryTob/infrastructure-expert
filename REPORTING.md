@@ -22,7 +22,8 @@
 14. **Evidence** — referenced evidence records (redacted).
 15. **Commands Executed** — command + purpose + safety level + result.
 16. **Skills Used** — skill, purpose, status, findings count.
-17. **New Skills Generated** — any SKILL.md created during the run.
+17. **Ad-hoc Checks** — bounded checks, evidence refs, result, and persistence decision.
+18. **New Skills Persisted** — exceptional; include the creation-gate rationale for any persisted skill.
 
 ## Visual language (offline)
 
@@ -30,7 +31,7 @@
 - Cards for overview; tables for findings; filter by severity (vanilla JS, no deps).
 - Print-friendly (`@media print`), responsive.
 
-## Evidence record (YAML) — stored under `reportes/<run-id>/`
+## Evidence record (YAML) — stored under `reportes/<run-id>/evidencia/`
 
 ```yaml
 id: <run-id>-<NNN>

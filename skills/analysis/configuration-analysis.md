@@ -7,6 +7,7 @@ phase: "analyze"
 risk: "readonly"
 execution_mode: "auto"
 depends_on: ["systemd_analysis"]
+triggers: []
 provides: ["sysctl", "limits", "webserver_config", "db_config_summary"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/configuration" }

@@ -40,10 +40,7 @@ ssh {{SSH_TARGET}} 'ps -eo pid,ppid,user,pcpu,pmem,etime,comm,args --sort=-pcpu 
 ### Temporal load series (snapshots, no artificial load)
 ```bash
 # [risk:probe] [mode:auto]
-for i in $(seq 0 {{SAMPLE_COUNT}}); do
-  { echo "T$i $(date -u +%T)"; ssh {{SSH_TARGET}} 'cat /proc/loadavg; vmstat 1 2 2>/dev/null | tail -1'; echo "---"; } >> {{OUTPUT_DIR}}/trend.txt
-  [ "$i" -lt "{{SAMPLE_COUNT}}" ] && sleep {{SAMPLE_INTERVAL}}
-done
+snapshot_loop "cpu-trend" "cpu" 'cat /proc/loadavg; vmstat 1 2 2>/dev/null | tail -1'
 ```
 
 ### Per-CPU (if mpstat available)

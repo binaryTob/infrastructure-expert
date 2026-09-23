@@ -44,10 +44,7 @@ ssh {{SSH_TARGET}} 'ps -eo pid,ppid,user,rss,vsz,pmem,comm,args --sort=-rss | he
 ### Swap/available trend series
 ```bash
 # [risk:probe] [mode:auto]
-for i in $(seq 0 {{SAMPLE_COUNT}}); do
-  { echo "T$i $(date -u +%T)"; ssh {{SSH_TARGET}} 'awk "/SwapTotal|SwapFree|MemAvailable/{print}" /proc/meminfo'; } >> {{OUTPUT_DIR}}/trend.txt
-  sleep {{SAMPLE_INTERVAL}}
-done
+snapshot_loop "memory-trend" "memory" 'awk "/SwapTotal|SwapFree|MemAvailable/{print}" /proc/meminfo'
 ```
 
 ### /proc/pressure/memory (PSI) if exists

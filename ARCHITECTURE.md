@@ -29,7 +29,7 @@ The "agent" is **not** a background daemon. It is an opencode (Claude Code-style
 │  OUTPUTS                                                      │
 │  reportes/<run-id>/*.yml   — reproducible evidence            │
 │  reportes/<run-id>/*.html  — human report (offline)           │
-│  skills/<area>/<tech>/     — persisted new skills             │
+│  skills/<area>/<skill>.md  — curated reusable capabilities    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,7 +60,7 @@ ssh_exec.sh -> reportes/<run-id>/evidencia/*.yml  (redacted)
 agent reads evidence -> builds inventory + graph
         │
         ▼
-agent selects skills (applies_when/triggers) -> may generate new SKILL.md
+agent selects skills (dependencies + triggers) -> bounded ad-hoc checks if needed
         │
         ▼
 agent runs more skills via ssh_exec.sh -> more evidence
@@ -84,5 +84,5 @@ agent prints executive summary to console
 - **No daemon**: an opencode session is the runtime; skills are data. Nothing to install beyond `ssh` + `python3`.
 - **Safety by construction**: `ssh_exec.sh` carries a mutability blocklist; the session context also forbids Level 3.
 - **Reusable across hosts**: only `config/target.json` changes. Skills are host-agnostic command inventories.
-- **Dynamic skill generation**: the loop detects "present tech, no skill" and writes a new `SKILL.md`, persisted for next time.
+- **Curated skill growth**: unsupported technology is handled first by generic capabilities and bounded ad-hoc checks. A new skill is persisted only when a distinct, reusable capability passes the creation gate in `WORKFLOW.md`.
 - **Read-only by default**: all skills are L1 or L2. Zero destructive actions without approval.

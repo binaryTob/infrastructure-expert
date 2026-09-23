@@ -16,14 +16,6 @@ false_positives:
 references:
   - "URL / doc de kernel o tuning"
 parameters:
-  OUTPUT_DIR:
-    type: "filepath"
-    default: "{{RUN_DIR}}/{{SKILL_ID}}"
-    description: "Directorio de evidencia para esta skill"
-  SSH_TARGET:
-    type: "string"
-    required: true
-    description: "Espec SSH: user@host o alias configurado"
   SAMPLE_INTERVAL:
     type: "duration"
     default: "30s"
@@ -52,8 +44,6 @@ Descripcion concisa (1-2 frases) de que mide y para que esta skill.
 
 | Variable | Tipo | Requerido | Default | Descripcion |
 |----------|------|-----------|---------|-------------|
-| `{{OUTPUT_DIR}}` | filepath | si | auto | Directorio de evidencia |
-| `{{SSH_TARGET}}` | string | si | — | Espec SSH |
 | `{{SAMPLE_INTERVAL}}` | duration | no | 30s | Intervalo de snapshot |
 | `{{SAMPLE_COUNT}}` | integer | no | 4 | Nro de snapshots |
 
@@ -63,27 +53,30 @@ Descripcion concisa (1-2 frases) de que mide y para que esta skill.
 for c in <TOOL_LIST>; do command -v "$c" >/dev/null 2>&1 && echo "OK $c" || echo "MISSING $c"; done
 ```
 
+Los bloques describen el payload remoto. El agente los ejecuta exclusivamente con
+`scripts/ssh_exec.sh <evidence-id> <category> <L1|L2> <payload> [evidence-dir]`;
+no ejecutar los ejemplos con `ssh` directo ni redirigir salida remota sin redaccion.
+Las series temporales son la excepcion de orquestacion local: usan
+`helpers.snapshot_loop`, que invoca el wrapper una vez por muestra para no exceder timeouts.
+
 ## Comandos
 
 ### 1. Snapshot T0
 ```bash
 # [risk:ro] [mode:auto]
-ssh "{{SSH_TARGET}}" '<COMANDO_READ_ONLY>' | tee "{{OUTPUT_DIR}}/t0-metrica.txt"
+<COMANDO_READ_ONLY>
 ```
 
 ### 2. Serie temporal (T+30s ... T+N)
 ```bash
 # [risk:probe] [mode:auto]
-for i in $(seq 1 {{SAMPLE_COUNT}}); do
-  ssh "{{SSH_TARGET}}" '<COMANDO>' | tee "{{OUTPUT_DIR}}/t${i}-metrica.txt"
-  sleep {{SAMPLE_INTERVAL}}
-done
+snapshot_loop "{{SKILL_ID}}-trend" "<category>" '<COMANDO_READ_ONLY>'
 ```
 
 ### 3. Bloque condicional (si componente presente)
 ```bash
 # [risk:ro] [mode:auto] [requires:COMPONENT_DETECTED]
-ssh "{{SSH_TARGET}}" '<COMANDO>' | tee "{{OUTPUT_DIR}}/componente.txt"
+<COMANDO>
 ```
 
 ## Analisis / Interpretacion
@@ -100,7 +93,7 @@ ssh "{{SSH_TARGET}}" '<COMANDO>' | tee "{{OUTPUT_DIR}}/componente.txt"
 | (%)     | < 50   | 50-70 | 70-85   | > 85     |
 
 ## Evidencia producida
-- `metrica.txt` / `metrica.json` en `{{OUTPUT_DIR}}`
+- `<evidence-id>.yml` en `{{RUN_DIR}}/evidencia/`, generado por `scripts/ssh_exec.sh`
 
 ## Seguridad
 Todos los bloques son read-only. Si aparece algo sospechoso (miner, proceso desconocido): FLAG + COLLECT + REPORT, no modificar.

@@ -12,6 +12,7 @@ depends_on:
   - "disk_analysis"
   - "io_analysis"
   - "network_analysis"
+triggers: []
 provides: ["capacity_buckets", "trend", "headroom"]
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/capacity" }

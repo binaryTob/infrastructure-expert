@@ -75,4 +75,12 @@ data = "\n".join(
     ) else l
     for l in data.split("\n"))
 
+# Key-like blobs EMBEDDED in a larger line (CLI flags such as `-k <hex>`,
+# `--token=...`, bare hash tokens). A long uninterrupted hex/base64 run is
+# key material far more often than it is legitimate operational data.
+data = re.sub(r"(?<![A-Za-z0-9+/=])([0-9a-fA-F]{48,})(?![A-Za-z0-9+/=])",
+              "<<REDACTED:HEX_BLOB>>", data)
+data = re.sub(r"(?<![A-Za-z0-9+/])([A-Za-z0-9+/]{48,}={0,2})(?![A-Za-z0-9+/=])",
+              "<<REDACTED:BASE64_BLOB>>", data)
+
 sys.stdout.write(data)

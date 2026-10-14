@@ -1,17 +1,17 @@
 # Executive Summary — {{SERVER_NAME}}
 
-**Generado:** {{DATE}}  ·  **Host:** {{HOSTNAME}}  ·  **Espec SSH:** {{SSH_TARGET}}  ·  **Read-only**
+**Generated:** {{DATE}}  ·  **Host:** {{HOSTNAME}}  ·  **SSH target:** {{SSH_TARGET}}  ·  **Read-only**
 
 ---
 
-## Sistema
+## System
 
 | | |
 |---|---|
 | **OS**        | {{OS}} |
 | **Kernel**    | {{KERNEL}} |
 | **Uptime**    | {{UPTIME}} |
-| **CPU**       | {{CPU_MODEL}} ({{NPROC}} nucleos · {{CPU_ARCH}}) |
+| **CPU**       | {{CPU_MODEL}} ({{NPROC}} cores · {{CPU_ARCH}}) |
 | **RAM**       | {{RAM_TOTAL}} (available {{RAM_AVAIL_PCT}}%) |
 | **Swap**      | {{SWAP_TOTAL}} (used {{SWAP_USED_PCT}}%) |
 | **Storage**   | {{DISK_SUMMARY}} |
@@ -24,7 +24,7 @@
 
 > {{OVERALL_BUCKET}} — {{OVERALL_TREND}}
 
-| Axis | Bucket | Trend | Nota |
+| Axis | Bucket | Trend | Note |
 |------|--------|-------|------|
 | CPU     | {{CPU_BUCKET}} | {{CPU_TREND}} | {{CPU_NOTE}} |
 | Memory  | {{MEM_BUCKET}} | {{MEM_TREND}} | {{MEM_NOTE}} |
@@ -32,11 +32,11 @@
 | I/O     | {{IO_BUCKET}} | {{IO_TREND}} | {{IO_NOTE}} |
 | Network | {{NET_BUCKET}} | {{NET_TREND}} | {{NET_NOTE}} |
 
-Leyenda: `NORMAL` · `WATCH` · `WARNING` · `CRITICAL`
+Legend: `NORMAL` · `WATCH` · `WARNING` · `CRITICAL`
 
 ---
 
-## Hallazgos por prioridad
+## Findings by priority
 
 | P0 Critical | P1 High | P2 Medium | P3 Low | P4 Info |
 |-------------|---------|-----------|--------|---------|
@@ -44,11 +44,11 @@ Leyenda: `NORMAL` · `WATCH` · `WARNING` · `CRITICAL`
 
 ---
 
-## Recommended Actions (orden)
+## Recommended actions (in order)
 
-1. {{ACTION_1}} — prioridad {{P1}}, riesgo {{RISK_1}}, esfuerzo {{EFFORT_1}}
+1. {{ACTION_1}} — priority {{P1}}, risk {{RISK_1}}, effort {{EFFORT_1}}
 2. {{ACTION_2}}
 3. {{ACTION_3}}
 
-> El detalle completo esta en el reporte HTML generado.
-> Ningun cambio fue aplicado al servidor. Este analisis fue **read-only**.
+> Full details are available in the generated HTML report.
+> No changes were applied to the server. This analysis was **read-only**.

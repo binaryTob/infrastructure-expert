@@ -1,79 +1,79 @@
-# Workflow: Incident Triage (síntoma -> causa raíz)
+# Workflow: Incident Triage (symptom -> root cause)
 
-Entrada para cuando el operador reporta un **síntoma** (no "haceme un audit", sino
-"el sitio da 502", "el disco se llenó", "un contenedor se reinicia solo"). El objetivo
-es llegar a la **causa raíz** y una **remediación**, no listar todo el inventario.
+Use when the operator reports a **symptom**, such as "the site returns 502",
+"the disk is full" or "a container keeps restarting", rather than requesting a
+full audit. The goal is a **root cause** and **remediation**, not a full inventory.
 
-Data-driven: este workflow lee `lib/diagnosis.yaml` (mapa síntoma -> hipótesis -> evidencia
--> skills) y ejecuta **solo** los skills que ese síntoma requiere. No hay lógica hardcodeada:
-agregar un síntoma nuevo es editar `diagnosis.yaml`.
+This data-driven workflow reads `lib/diagnosis.yaml` (symptom -> hypotheses ->
+evidence -> skills) and runs only the required skills. Adding a symptom is a
+change to `diagnosis.yaml`, not hardcoded workflow logic.
 
-## Entrada mínima
+## Minimum input
 
-| Variable | Requerido | Descripción |
-|----------|-----------|-------------|
-| `SYMPTOM` | si | El síntoma reportado (p.ej. "502 en descubrisannicolas.com.ar") |
-| `SSH_TARGET` | si | `user@host` o alias configurado |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SYMPTOM` | yes | Reported symptom, e.g. "502 on app.example.test" |
+| `SSH_TARGET` | yes | `user@host` or a configured alias |
 
 ## Loop
 
-```
-1. NORMALIZAR el síntoma -> mapear a un id de diagnosis.yaml
+```text
+1. NORMALIZE the symptom -> map it to a diagnosis.yaml ID
      (502 -> http_5xx/502_bad_gateway, cert -> cert_error, etc.)
      |
      v
-2. LEER diagnosis.yaml: obtener la lista ordenada de hipótesis para ese id.
+2. READ diagnosis.yaml: obtain the ordered hypotheses for that ID.
      |
      v
-3. POR CADA hipótesis (en orden de probabilidad):
-     - mirar qué evidence necesita y qué skills la producen
-     - si la evidencia ya existe en reportes/<run-id>/, usarla; si no, correr el skill
-     - correr la prueba confirmatoria NO destructiva ("confirm")
-     - si se confirma -> causa raíz encontrada; salir
-     - si se descarta -> pasar a la siguiente hipótesis
+3. FOR EACH hypothesis (in likelihood order):
+     - identify required evidence and the skills that produce it
+     - reuse existing evidence in reportes/<run-id>/; otherwise run the skill
+     - run the non-destructive confirmation check ("confirm")
+     - if confirmed -> root cause found; exit
+     - if ruled out -> continue to the next hypothesis
      |
      v
-4. VERIFICAR con una segunda fuente (anti-falso-positivo):
-     evidencia + contexto + exposición + impacto (lib/severity.md)
+4. VERIFY with a second source to reduce false positives:
+     evidence + context + exposure + impact (lib/severity.md)
      |
      v
-5. GENERAR el finding (FACT/OBSERVATION/HYPOTHESIS/RISK) + severidad + confianza
+5. GENERATE a finding (FACT/OBSERVATION/HYPOTHESIS/RISK) + severity + confidence
      |
      v
-6. GENERAR la remediación (WHAT/WHY/HOW/RISK/PRIORITY/VALIDATION/ROLLBACK)
-     - si requiere Level 3 -> STOP, DOCUMENTAR, PEDIR APROBACIÓN
+6. GENERATE remediation (WHAT/WHY/HOW/RISK/PRIORITY/VALIDATION/ROLLBACK)
+     - if Level 3 is required -> STOP, DOCUMENT, REQUEST APPROVAL
      |
      v
-7. REPORTAR: causa raíz + evidencia + remediación (resumen en consola)
+7. REPORT root cause + evidence + remediation (console summary)
 ```
 
-## Reglas duras
+## Hard rules
 
-1. **Read-only hasta el final.** El diagnóstico NUNCA arregla solo. Si la confirmación
-   o la remediación es Level 3, se documenta y se pide aprobación (SAFETY.md).
-2. **Evidencia primero.** Ninguna hipótesis se da por confirmada sin un registro de
-   evidencia almacenado.
-3. **Anti-falso-positivo.** Una hipótesis es una *hipótesis* hasta que la prueba
-   confirmatoria (no destructiva) la valida. 1 snapshot no es tendencia.
-4. **Skills existentes primero.** Cada "how" de `diagnosis.yaml` referencia capacidades
-   existentes. Si falta una comprobacion, ejecutar un check ad-hoc L1/L2 acotado; crear
-   una skill solo si supera el gate de necesidad y reutilizacion de `WORKFLOW.md`.
-5. **No asumir arquitectura.** El 502 puede ser Apache, nginx, o un ingress de K8s;
-   dejar que `web_server_analysis` / `ingress_nginx_analysis` lo descubran.
+1. **Read-only throughout.** Diagnosis never applies fixes automatically. If
+   confirmation or remediation requires Level 3, document it and request approval
+   (`SAFETY.md`).
+2. **Evidence first.** No hypothesis is confirmed without a stored evidence record.
+3. **False-positive control.** A hypothesis remains a hypothesis until a
+   non-destructive confirmation check validates it. One snapshot is not a trend.
+4. **Existing skills first.** Each `how` in `diagnosis.yaml` references existing
+   capabilities. Cover missing checks with bounded L1/L2 ad-hoc work; create a
+   skill only if it passes the necessity/reuse gate in `WORKFLOW.md`.
+5. **Do not assume architecture.** A 502 may come from Apache, nginx or Kubernetes
+   ingress; let `web_server_analysis` / `ingress_nginx_analysis` discover it.
 
-## Ejemplo: "502 en el sitio"
+## Example: "502 on the site"
 
+```text
+symptom -> http_5xx
+hypothesis 1: upstream unavailable
+  -> run web_server_analysis (proxy map + upstream health)
+  -> confirm: curl upstream -> 000 (refused)
+  -> verify: docker ps -a + curl container-IP -> no listener
+  -> root cause: container 'up' but Rails process terminated (no swap -> OOM)
+  -> remediation: restart container + enable swap (Level 3 -> request approval)
 ```
-síntoma -> http_5xx
-hipótesis 1: upstream caído
-  -> correr web_server_analysis (proxy map + upstream health)
-  -> confirm: curl al upstream -> 000 (refused)
-  -> verificar: docker ps -a + curl al container-IP -> nada escuchando
-  -> causa raíz: contenedor 'up' pero proceso Rails muerto (sin swap -> OOM)
-  -> remediación: reiniciar contenedor + habilitar swap (Level 3 -> pedir aprobación)
-```
 
-## Directorio de reportes
+## Report directory
 
-Igual que el audit: evidencia en `reportes/<run-id>/evidencia/`, hallazgos en
-`reportes/<run-id>/findings.yaml`. Reutiliza el mismo `run-id` si ya existía una corrida.
+As with an audit, store evidence in `reportes/<run-id>/evidencia/` and findings in
+`reportes/<run-id>/findings.yaml`. Reuse the same `run-id` for an existing run.

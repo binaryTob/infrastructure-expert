@@ -36,13 +36,13 @@ ssh {{SSH_TARGET}} 'echo "=== /etc/security/limits.conf ==="; grep -v "^#" /etc/
 ### Nginx config (if present)
 ```bash
 # [risk:ro] [mode:auto] [requires:nginx]
-ssh {{SSH_TARGET}} 'nginx -T 2>/dev/null | grep -E "worker_connections|worker_processes|keepalive|gzip|error_log|access_log|listen|server_name|proxy_pass" | head -60 || echo "nginx -T no disponible"'
+ssh {{SSH_TARGET}} 'nginx -T 2>/dev/null | grep -E "worker_connections|worker_processes|keepalive|gzip|error_log|access_log|listen|server_name|proxy_pass" | head -60 || echo "nginx -T unavailable"'
 ```
 
 ### Apache config (if present)
 ```bash
 # [risk:ro] [mode:auto] [requires:apache2]
-ssh {{SSH_TARGET}} 'apachectl -S 2>/dev/null || apache2ctl -S 2>/dev/null || httpd -S 2>/dev/null || echo "apache no disponible"'
+ssh {{SSH_TARGET}} 'apachectl -S 2>/dev/null || apache2ctl -S 2>/dev/null || httpd -S 2>/dev/null || echo "apache unavailable"'
 ```
 
 ### Ulimits per running process (top memory consumers)

@@ -1,6 +1,6 @@
 # Findings Template
 
-Cada finding sigue este formato. Confidence: `HIGH | MEDIUM | LOW | INSUFFICIENT_DATA`.
+Each finding follows this format. Confidence: `HIGH | MEDIUM | LOW | INSUFFICIENT_DATA`.
 Severity: `P0 | P1 | P2 | P3 | P4`.
 
 ---
@@ -20,34 +20,35 @@ P0 / P1 / P2 / P3 / P4
 HIGH / MEDIUM / LOW / INSUFFICIENT_DATA
 
 ### Evidence (FACT)
-- Comando: `...`
-- Output (extracto): ```
+- Command: `...`
+- Output (excerpt):
+```
 
 ```
 
 ### Observation (FACT)
-Que se observo, sin interpretacion.
+What was observed, without interpretation.
 
 ### Analysis (INFERENCE)
-Por que probablemente ocurre. Citar skills correlacionadas.
+Why it likely occurs. Cite correlated skills.
 
 ### Root Cause (INFERENCE)
-Causa probable; si no se puede afirmar -> `INSUFFICIENT_DATA`.
+Likely cause; if it cannot be established -> `INSUFFICIENT_DATA`.
 
 ### Recommendation (RECOMMENDATION)
-Que hacer.
+What to do.
 
 ### Expected Benefit
-Antes: X. Despues esperado: Y.
+Before: X. Expected after: Y.
 
 ### Risk
-Riesgo de aplicar la recomendacion.
+Risk of applying the recommendation.
 
-### Implementation (no ejecutado en este framework)
-Comando/config sugerido.
+### Implementation (not executed by this framework)
+Suggested command/configuration.
 
 ### Rollback
-Como deshacer el cambio.
+How to undo the change.
 
 ### Validation
-Como comprobar que funciono (antes/despues).
+How to verify the result (before/after).

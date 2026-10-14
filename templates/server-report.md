@@ -1,6 +1,6 @@
 # Server Health Report — {{HOSTNAME}}
 
-**Fecha:** {{DATE}}  ·  **Espec SSH:** {{SSH_TARGET}}  ·  **Read-only**
+**Date:** {{DATE}}  ·  **SSH target:** {{SSH_TARGET}}  ·  **Read-only**
 
 ---
 
@@ -20,14 +20,14 @@
 - nproc: {{NPROC}} · load avg: {{LOADAVG}} · ratio load/nproc: {{LOAD_RATIO}}
 - %user / %system / %iowait (1m): {{CPU_US}} / {{CPU_SY}} / {{CPU_WA}}
 - trend: {{CPU_TREND}}
-- top procesos: {{TOP_CPU_TABLE}}
+- top processes: {{TOP_CPU_TABLE}}
 
 ## 5. Memory
 - total/used/available/cache+buffers: {{MEM_TABLE}}
 - swap: {{SWAP_DETAIL}}
 - swappiness: {{SWAPPINESS}}
 - PSI: {{PSI_DETAIL}}
-- OOM historicos: {{OOM_DETAIL}}
+- historical OOM events: {{OOM_DETAIL}}
 
 ## 6. Storage
 {{STORAGE_TABLE}}
@@ -63,9 +63,9 @@
 {{CAPACITY_SECTION}}
 
 ## 17. Findings
-Resumen por prioridad:
+Summary by priority:
 | P0 | P1 | P2 | P3 | P4 |
 |----|----|----|----|----|
 | {{P0}} | {{P1}} | {{P2}} | {{P3}} | {{P4}} |
 
-Ver `findings.md` para el detalle con evidencia, analisis, recomendacion, validacion y rollback.
+See `findings.md` for evidence, analysis, recommendations, validation and rollback details.

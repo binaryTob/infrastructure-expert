@@ -10,7 +10,7 @@ depends_on: ["system_inventory"]
 provides: ["load_avg", "cpu_per_process", "cpu_trend"]
 triggers: []
 false_positives:
-  - "CPU alta durante backups/cron windows: correlar con timers activos antes de concluir."
+  - "High CPU during backup/cron windows: correlate with active timers before drawing conclusions."
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/cpu" }
   SSH_TARGET: { type: "string", required: true }
@@ -46,7 +46,7 @@ snapshot_loop "cpu-trend" "cpu" 'cat /proc/loadavg; vmstat 1 2 2>/dev/null | tai
 ### Per-CPU (if mpstat available)
 ```bash
 # [risk:ro] [mode:auto] [requires:mpstat]
-ssh {{SSH_TARGET}} 'mpstat -P ALL 1 1 2>/dev/null || echo "mpstat ausente"'
+ssh {{SSH_TARGET}} 'mpstat -P ALL 1 1 2>/dev/null || echo "mpstat unavailable"'
 ```
 
 ### pidstat per process

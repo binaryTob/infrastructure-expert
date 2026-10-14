@@ -1,17 +1,17 @@
 # Common Helpers — Infrastructure Expert
 
-Modulos reutilizables inyectables en skills/workflow mediante `<!-- MODULE:helpers.nombre -->`.
-Ejecucion **read-only** sobre SSH. Nada instala, reinicia ni modifica nada en el servidor.
+Reusable modules included in skills/workflows through `<!-- MODULE:helpers.name -->`.
+Execution is **read-only** over SSH. Do not install, restart or modify anything on the server.
 
 ---
 
 ## MODULE:helpers.ssh_run
 
-Unico punto de entrada para comandos remotos. Delega captura y redaccion al wrapper
-canonico; ninguna skill implementa su propio SSH ni escribe salida remota directamente.
+The single entry point for remote commands. Delegate capture and redaction to the
+canonical wrapper; skills must not implement their own SSH or write raw remote output.
 
 ```bash
-# Uso: ssh_run <evidence-id> <category> <L1|L2> <remote-command>
+# Usage: ssh_run <evidence-id> <category> <L1|L2> <remote-command>
 ssh_run() {
   local evidence_id="$1" category="$2" level="$3" cmd="$4"
   scripts/ssh_exec.sh "$evidence_id" "$category" "$level" "$cmd" "{{RUN_DIR}}/evidencia"
@@ -22,16 +22,16 @@ ssh_run() {
 
 ## MODULE:helpers.redact
 
-La redaccion esta centralizada en `scripts/redact.py` y es invocada por
-`scripts/ssh_exec.sh` antes de persistir evidencia. No duplicar expresiones regulares
-en skills: las implementaciones parciales divergen y pueden filtrar secretos.
+Redaction is centralized in `scripts/redact.py` and invoked by `scripts/ssh_exec.sh`
+before evidence is persisted. Do not duplicate regular expressions in skills:
+partial implementations diverge and can leak secrets.
 
 ---
 
 ## MODULE:helpers.detect
 
-Deteccion dinamica de componentes presentes en el host (read-only).
-El workflow usa esto para decidir que skills ejecutar y cuales SKIPear.
+Dynamically detect components on the host (read-only).
+The workflow uses this to decide which skills to execute and which to skip.
 
 ```bash
 detect_components() {
@@ -55,7 +55,7 @@ detect_components() {
 
 ## MODULE:helpers.snapshot_loop
 
-Loop de snapshots temporales SIN carga artificial (solo `sleep` + medicion).
+Time-series snapshot loop without artificial load (`sleep` + measurement only).
 
 ```bash
 snapshot_loop() {
@@ -67,24 +67,24 @@ snapshot_loop() {
 }
 ```
 
-El workflow coordina las series de CPU, memoria e I/O en una misma ventana temporal.
-Puede ejecutar las tres mediciones en paralelo, con maximo 3 comandos, pero nunca
-iniciar otra serie de la misma metrica ni repetir snapshots ya frescos.
+The workflow coordinates CPU, memory and I/O series in the same time window.
+It may run the three measurements in parallel, with at most three commands, but
+must not start another series for the same metric or repeat fresh snapshots.
 
 ---
 
 ## MODULE:helpers.evidence_reuse
 
-Antes de ejecutar, consultar los registros en `{{RUN_DIR}}/evidencia/`. Reusar dentro
-del mismo run solo si coinciden target, payload normalizado, parametros y privilegio.
-El primer skill topologicamente ordenado es owner del comando; consumidores posteriores
-guardan `evidence_refs`, no vuelven a ejecutarlo. No reutilizar entre runs por defecto.
+Before execution, check records in `{{RUN_DIR}}/evidencia/`. Reuse within the same
+run only when target, normalized payload, parameters and privileges match.
+The first topologically ordered skill owns the command; later consumers store
+`evidence_refs` instead of rerunning it. Do not reuse across runs by default.
 
 ---
 
 ## MODULE:helpers.finding
 
-Emite un finding estructurado al directorio de hallazgos.
+Emit a structured finding to the findings directory.
 
 ```bash
 emit_finding() {
@@ -109,18 +109,18 @@ EOF
 
 ## MODULE:helpers.safety_guard
 
-Antes de ejecutar cualquier comando que no sea claramente read-only: STOP -> ANALYZE -> ASK.
+Before executing any command that is not clearly read-only: STOP -> ANALYZE -> ASK.
 
 ```
-Comandos prohibidos en fase read-only:
+Commands prohibited during the read-only phase:
   apt/dpkg/yum/dnf/pacman -i/-r/-u, pip/npm install,
   systemctl start/stop/restart/enable/disable,
   sysctl -w, iptables/firewalld --add/--remove,
   docker restart/stop/rm/prune, kubectl apply/delete/edit,
   rm, chmod/chown, mount/umount, mkfs, dd, reboot/halt,
-  kill/pkill, sed -i sobre configs,
-  cualquier redireccion > >> hacia /etc /var /root /opt
-  fuera del directorio de evidencia.
+  kill/pkill, sed -i on configuration files,
+  any > >> redirection to /etc /var /root /opt
+  outside the evidence directory.
 
-Si aparece un comando de modificacion: NO ejecutar. Registrar como recomendacion.
+If a mutating command is encountered: do not execute it. Record it as a recommendation.
 ```

@@ -159,13 +159,13 @@ def detect_components(evidence):
     }
 
 def build_nav(sections):
-    items = [("exec-summary", "Resumen Ejecutivo")]
+    items = [("exec-summary", "Executive Summary")]
     for sid, label in sections:
         items.append((sid, label))
-    items.append(("findings", "Hallazgos"))
-    items.append(("evidence", "Evidencia"))
+    items.append(("findings", "Findings"))
+    items.append(("evidence", "Evidence"))
     links = "".join(f'<a href="#{id}">{label}</a>' for id, label in items)
-    return f'<nav><h2>Contenido</h2>{links}</nav>'
+    return f'<nav><h2>Contents</h2>{links}</nav>'
 
 def kv_row(k, v):
     return f'<div class="kv"><span class="k">{cesc(k)}</span><span class="v">{cesc(v)}</span></div>'
@@ -382,7 +382,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     evidence = read_evidence(run_dir)
     comp = detect_components(evidence)
     n_skills, conditional_skills, all_skill_ids = load_skill_catalog()
-    skills_exec = "no registrado (falta skills-used.yaml)"
+    skills_exec = "not recorded (skills-used.yaml missing)"
     skills_used_path = os.path.join(run_dir, "skills-used.yaml")
     if os.path.exists(skills_used_path):
         skills_used = load_yaml(skills_used_path) or {}
@@ -390,7 +390,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
             s.get("id", "") for s in skills_used.get("skills", [])
             if s.get("status") == "executed" and s.get("id")
         ]
-        skills_exec = ", ".join(executed) if executed else "ninguno"
+        skills_exec = ", ".join(executed) if executed else "none"
 
     host = "unknown"
     if inventory:
@@ -425,12 +425,12 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 
     # Build sections list dynamically
     sections = []
-    sections.append(("infra-overview", "Infraestructura"))
+    sections.append(("infra-overview", "Infrastructure"))
 
     # OS summary card
     os_card = ""
     if os_info:
-        os_card = '<div class="card"><h4>Sistema Operativo</h4>'
+        os_card = '<div class="card"><h4>Operating System</h4>'
         for k in ["hostname","os_pretty","os","kernel","arch","virt","chassis"]:
             if k in os_info:
                 os_card += kv_row(k.replace("os_pretty","os"), os_info[k])
@@ -446,16 +446,16 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         hw_card = '<div class="card"><h4>Hardware</h4>'
         if "nproc" in cpu_ram: hw_card += kv_row("CPU cores", cpu_ram["nproc"])
         if "cpus" in cpu_ram: hw_card += kv_row("CPUs", cpu_ram["cpus"])
-        if "mem_total" in cpu_ram: hw_card += kv_row("RAM total", cpu_ram["mem_total"])
-        if "mem_avail" in cpu_ram: hw_card += kv_row("RAM disponible", f'{cpu_ram["mem_avail"]} (WARNING)' if cpu_ram.get("swap_used") == "255Mi" or "0.0Ki" in cpu_ram.get("swap_total","") else cpu_ram["mem_avail"])
-        if "swap_total" in cpu_ram: hw_card += kv_row("Swap total", cpu_ram["swap_total"])
-        if "swap_used" in cpu_ram: hw_card += kv_row("Swap usado", f'{cpu_ram["swap_used"]} <span class="badge crit">LLENO</span>' if cpu_ram.get("swap_used","") == "255Mi" and cpu_ram.get("swap_total","") == "255Mi" else cpu_ram["swap_used"])
+        if "mem_total" in cpu_ram: hw_card += kv_row("Total RAM", cpu_ram["mem_total"])
+        if "mem_avail" in cpu_ram: hw_card += kv_row("Available RAM", f'{cpu_ram["mem_avail"]} (WARNING)' if cpu_ram.get("swap_used") == "255Mi" or "0.0Ki" in cpu_ram.get("swap_total","") else cpu_ram["mem_avail"])
+        if "swap_total" in cpu_ram: hw_card += kv_row("Total swap", cpu_ram["swap_total"])
+        if "swap_used" in cpu_ram: hw_card += kv_row("Used swap", f'{cpu_ram["swap_used"]} <span class="badge crit">FULL</span>' if cpu_ram.get("swap_used","") == "255Mi" and cpu_ram.get("swap_total","") == "255Mi" else cpu_ram["swap_used"])
         hw_card += '</div>'
 
     # Disk card
     disk_card = ""
     if disk_info:
-        disk_card = '<div class="card"><h4>Disco</h4>'
+        disk_card = '<div class="card"><h4>Disk</h4>'
         for k in ["device","size","fs","mount","fs_size","fs_used","fs_avail","fs_use_pct"]:
             if k in disk_info:
                 label = k.replace("fs_","")
@@ -477,12 +477,12 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         swap_pct = 100 if swap_total > 0 and swap_free == 0 else round((swap_total - swap_free) / swap_total * 100) if swap_total > 0 else 0
         avail_pct = round(avail / total * 100)
 
-        mem_html = '<div class="card"><h4>Memoria</h4>'
-        mem_html += kv_row("RAM total", f'{total // 1024 // 1024:.0f} GB')
-        mem_html += kv_row("RAM disponible", f'{avail // 1024 // 1024:.0f} GB ({avail_pct}%)')
+        mem_html = '<div class="card"><h4>Memory</h4>'
+        mem_html += kv_row("Total RAM", f'{total // 1024 // 1024:.0f} GB')
+        mem_html += kv_row("Available RAM", f'{avail // 1024 // 1024:.0f} GB ({avail_pct}%)')
         sw_label = "CRITICAL" if swap_pct >= 90 else "WARNING" if swap_pct >= 50 else "OK"
         sw_cls = "crit" if swap_pct >= 90 else "warn" if swap_pct >= 50 else "ok"
-        mem_html += kv_row("Swap usado", f'{swap_pct}% <span class="badge {sw_cls}">{sw_label}</span>')
+        mem_html += kv_row("Used swap", f'{swap_pct}% <span class="badge {sw_cls}">{sw_label}</span>')
         mem_html += kv_row("Committed_AS", f'{committed // 1024 // 1024:.0f} GB')
         mem_html += kv_row("CommitLimit", f'{commit_limit // 1024 // 1024:.0f} GB')
         if committed > commit_limit:
@@ -499,45 +499,45 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     cpu_lines = cpu_html.split("\n")[:16]
     cpu_text = "\n".join(cpu_lines)
 
-    sections.append(("resources", "Recursos"))
+    sections.append(("resources", "Resources"))
 
     # Docker section (conditional)
     docker_html = ""
     if comp["docker"]:
-        sections.append(("containers", "Contenedores"))
+        sections.append(("containers", "Containers"))
         docker_info_out = extract_stdout(evidence, "docker-info")
         docker_html = '<div class="card"><h4>Docker Info</h4>'
         docker_html += kv_row("Info", docker_info_out)
-        docker_html += f'<p style="margin-top:6px;font-size:11px;color:var(--muted)">{len(containers)} contenedores corriendo</p>'
+        docker_html += f'<p style="margin-top:6px;font-size:11px;color:var(--muted)">{len(containers)} running containers</p>'
         docker_html += '</div>'
         if containers:
-            docker_html += '<div class="tbl-wrap"><table><tr><th>Nombre</th><th>Imagen</th><th>Estado</th></tr>'
+            docker_html += '<div class="tbl-wrap"><table><tr><th>Name</th><th>Image</th><th>Status</th></tr>'
             for c in containers[:50]:
                 docker_html += f'<tr><td>{cesc(c["name"])}</td><td>{cesc(c["image"])}</td><td>{cesc(c["status"])}</td></tr>'
             if len(containers) > 50:
-                docker_html += f'<tr><td colspan="3" style="color:var(--muted)">... y {len(containers)-50} mas</td></tr>'
+                docker_html += f'<tr><td colspan="3" style="color:var(--muted)">... and {len(containers)-50} more</td></tr>'
             docker_html += '</table></div>'
     else:
-        docker_html = '<p class="section-empty">No se detecto Docker en este servidor.</p>'
+        docker_html = '<p class="section-empty">Docker was not detected on this server.</p>'
 
     # Network section
-    sections.append(("network", "Red"))
+    sections.append(("network", "Network"))
     network_html = ""
     if listening:
-        network_html = '<div class="card"><h4>Puertos expuestos</h4>'
+        network_html = '<div class="card"><h4>Exposed Ports</h4>'
         host_ports = [p for p in listening if "0.0.0.0:" in p or "*:" in p or "[::]:" in p]
         local_ports = [p for p in listening if "127.0.0." in p]
         non_docker = [p for p in host_ports if "docker-proxy" not in p]
-        network_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(non_docker)} servicios host + {len(host_ports) - len(non_docker)} puertos Docker expuestos</p>'
+        network_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(non_docker)} host services + {len(host_ports) - len(non_docker)} exposed Docker ports</p>'
         for p in non_docker[:25]:
             network_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(p)}</div>'
-        network_html += f'<p style="font-size:10px;color:var(--muted);margin-top:4px">+ {len(host_ports) - len(non_docker)} puertos Docker (ver seccion Contenedores)</p>'
+        network_html += f'<p style="font-size:10px;color:var(--muted);margin-top:4px">+ {len(host_ports) - len(non_docker)} Docker ports (see Containers)</p>'
         network_html += '</div>'
 
         # Firewall
         fw_out = extract_stdout(evidence, "net-firewall")
         ufw_match = re.search(r'(Status:\s*\w+)', fw_out)
-        ufw_status = ufw_match.group(1) if ufw_match else "Status: desconocido"
+        ufw_status = ufw_match.group(1) if ufw_match else "Status: unknown"
         network_html += f'<div class="card"><h4>Firewall</h4>'
         network_html += kv_row("UFW", f'<span class="badge {"ok" if "active" in ufw_status.lower() else "crit"}">{ufw_status}</span>')
         network_html += kv_row("iptables default", "INPUT ACCEPT")
@@ -546,76 +546,76 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     # --- NEW: Web Server section ---
     web_html = ""
     if comp["web"]:
-        sections.append(("web-server", "Servidor Web"))
-        web_html = '<div class="card"><h4>Servidor Web / Reverse Proxy</h4>'
+        sections.append(("web-server", "Web Server"))
+        web_html = '<div class="card"><h4>Web Server / Reverse Proxy</h4>'
         if web_vhosts:
             web_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(web_vhosts)} vhosts/proxy mappings</p>'
             for v in web_vhosts[:20]:
                 web_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(v)}</div>'
         else:
-            web_html += '<p class="section-empty">Sin vhosts / proxy mappings detectados</p>'
+            web_html += '<p class="section-empty">No vhosts / proxy mappings detected</p>'
         web_html += '</div>'
 
     # --- NEW: TLS section ---
     tls_html = ""
     if comp["tls"]:
-        sections.append(("tls", "TLS / Certificados"))
-        tls_html = '<div class="card"><h4>Certificados TLS</h4>'
+        sections.append(("tls", "TLS / Certificates"))
+        tls_html = '<div class="card"><h4>TLS Certificates</h4>'
         if tls_certs:
-            tls_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(tls_certs)} certificados</p>'
+            tls_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(tls_certs)} certificates</p>'
             for c in tls_certs[:15]:
                 tls_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(c)}</div>'
         else:
-            tls_html += '<p class="section-empty">Sin certificados detectados</p>'
+            tls_html += '<p class="section-empty">No certificates detected</p>'
         tls_html += '</div>'
 
     # --- NEW: HTTP Health section ---
     http_html = ""
     if comp["web"]:
-        sections.append(("http-health", "Salud HTTP"))
-        http_html = '<div class="card"><h4>Salud HTTP / Endpoints</h4>'
+        sections.append(("http-health", "HTTP Health"))
+        http_html = '<div class="card"><h4>HTTP Health / Endpoints</h4>'
         if http_checks:
             http_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:4px">{len(http_checks)} endpoints</p>'
             for h in http_checks[:20]:
                 http_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(h)}</div>'
         else:
-            http_html += '<p class="section-empty">Sin checks HTTP</p>'
+            http_html += '<p class="section-empty">No HTTP checks recorded</p>'
         http_html += '</div>'
 
     # --- NEW: DNS section ---
     dns_html = ""
     if comp["dns"]:
         sections.append(("dns", "DNS"))
-        dns_html = '<div class="card"><h4>DNS / Resolución</h4>'
+        dns_html = '<div class="card"><h4>DNS / Resolution</h4>'
         if dns_info:
             for d in dns_info[:20]:
                 dns_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(d)}</div>'
         else:
-            dns_html += '<p class="section-empty">Sin info DNS detallada</p>'
+            dns_html += '<p class="section-empty">No detailed DNS information</p>'
         dns_html += '</div>'
 
     # --- NEW: Firewall deep-dive section ---
     fw_deep_html = ""
     if comp["firewall"]:
-        sections.append(("firewall-deep", "Firewall (detalle)"))
-        fw_deep_html = '<div class="card"><h4>Firewall (detalle)</h4>'
+        sections.append(("firewall-deep", "Firewall Details"))
+        fw_deep_html = '<div class="card"><h4>Firewall Details</h4>'
         if firewall_info:
             for f in firewall_info[:25]:
                 fw_deep_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(f)}</div>'
         else:
-            fw_deep_html += '<p class="section-empty">Sin reglas de firewall detectadas</p>'
+            fw_deep_html += '<p class="section-empty">No firewall rules detected</p>'
         fw_deep_html += '</div>'
 
     # --- NEW: DB Tuning section ---
     db_tuning_html = ""
     if comp["db_tuning"]:
         sections.append(("db-tuning", "DB Tuning"))
-        db_tuning_html = '<div class="card"><h4>Ajuste de Base de Datos</h4>'
+        db_tuning_html = '<div class="card"><h4>Database Tuning</h4>'
         if db_tuning_info:
             for d in db_tuning_info[:20]:
                 db_tuning_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(d)}</div>'
         else:
-            db_tuning_html += '<p class="section-empty">Sin métricas de tuning</p>'
+            db_tuning_html += '<p class="section-empty">No tuning metrics recorded</p>'
         db_tuning_html += '</div>'
 
     # --- NEW: SSH Hardening section ---
@@ -627,11 +627,11 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
             for s in ssh_hardening_info[:25]:
                 ssh_hardening_html += f'<div style="font-size:10px;padding:1px 0;color:var(--text)">{cesc(s)}</div>'
         else:
-            ssh_hardening_html += '<p class="section-empty">Sin info de hardening SSH</p>'
+            ssh_hardening_html += '<p class="section-empty">No SSH hardening information</p>'
         ssh_hardening_html += '</div>'
 
     # Security section
-    sections.append(("security", "Seguridad"))
+    sections.append(("security", "Security"))
     sec_html = '<div class="cards">'
 
     ssh_out = extract_stdout(evidence, "sec-ssh")
@@ -640,7 +640,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         line = line.strip()
         if line and "=" not in line and "keys" not in line:
             if line.startswith("Port "):
-                ssh_html += kv_row("Puerto", line.replace("Port ",""))
+                ssh_html += kv_row("Port", line.replace("Port ",""))
             elif "yes" in line.lower() and ("password" in line.lower() or "root" in line.lower() or "x11" in line.lower()):
                 ssh_html += kv_row(line.split()[0], f'<span class="badge warn">{line}</span>')
             else:
@@ -688,15 +688,15 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 
     forensic_html = ""
     if has_forensic:
-        sections.append(("forensic", "Investigacion Forense"))
+        sections.append(("forensic", "Forensic Investigation"))
         forensic_html = '<div class="cards">'
 
         # .env files found
         if cred_out:
             env_lines = [l.strip() for l in cred_out.split("\n") if l.strip() and not l.startswith("===")]
             env_count = len([l for l in env_lines if l.startswith("/")])
-            forensic_html += f'<div class="card"><h4>Archivos .env Encontrados</h4>'
-            forensic_html += kv_row("Total encontrados", str(env_count))
+            forensic_html += f'<div class="card"><h4>Discovered .env Files</h4>'
+            forensic_html += kv_row("Total found", str(env_count))
             for l in env_lines[:15]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
             forensic_html += '</div>'
@@ -705,7 +705,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         if cred_out2:
             perm_lines = [l.strip() for l in cred_out2.split("\n") if l.strip() and not l.startswith("===")]
             world_readable = [l for l in perm_lines if "-rw-r--r--" in l or "-rw-rw-rw" in l or "-rwxrwxrwx" in l]
-            forensic_html += f'<div class="card"><h4>Permisos .env</h4>'
+            forensic_html += f'<div class="card"><h4>.env Permissions</h4>'
             forensic_html += kv_row("World-readable", f'<span class="badge crit">{len(world_readable)}</span>' if world_readable else '<span class="badge ok">0</span>')
             for l in perm_lines[:15]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
@@ -714,7 +714,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         # Web exposed .env
         if web_env_out:
             web_lines = [l.strip() for l in web_env_out.split("\n") if l.strip() and not l.startswith("===")]
-            forensic_html += f'<div class="card"><h4>.env en Directorios Web</h4>'
+            forensic_html += f'<div class="card"><h4>.env in Web Directories</h4>'
             for l in web_lines[:10]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
             forensic_html += '</div>'
@@ -723,8 +723,8 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         if git_creds_out:
             git_lines = [l.strip() for l in git_creds_out.split("\n") if l.strip() and not l.startswith("===")]
             has_creds = any("FOUND" in l or ".git-credentials" in l or ".netrc" in l for l in git_lines)
-            forensic_html += f'<div class="card"><h4>Credenciales Git</h4>'
-            forensic_html += kv_row("Credenciales encontradas", f'<span class="badge crit">SI</span>' if has_creds else '<span class="badge ok">NO</span>')
+            forensic_html += f'<div class="card"><h4>Git Credentials</h4>'
+            forensic_html += kv_row("Credentials found", f'<span class="badge crit">YES</span>' if has_creds else '<span class="badge ok">NO</span>')
             for l in git_lines[:15]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
             forensic_html += '</div>'
@@ -732,7 +732,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         # GitHub tokens
         if git_tokens_out:
             tok_lines = [l.strip() for l in git_tokens_out.split("\n") if l.strip() and not l.startswith("===")]
-            forensic_html += f'<div class="card"><h4>Tokens GitHub</h4>'
+            forensic_html += f'<div class="card"><h4>GitHub Tokens</h4>'
             for l in tok_lines[:10]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
             forensic_html += '</div>'
@@ -740,7 +740,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         # Filesystem timeline
         if fs_timeline_out:
             tl_lines = [l.strip() for l in fs_timeline_out.split("\n") if l.strip() and not l.startswith("===")]
-            forensic_html += f'<div class="card"><h4>Timeline de Archivos</h4>'
+            forensic_html += f'<div class="card"><h4>File Timeline</h4>'
             for l in tl_lines[:15]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
             forensic_html += '</div>'
@@ -748,7 +748,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         # Bash history
         if bash_hist_out:
             bh_lines = [l.strip() for l in bash_hist_out.split("\n") if l.strip() and not l.startswith("===")]
-            forensic_html += f'<div class="card"><h4>Bash History Analisis</h4>'
+            forensic_html += f'<div class="card"><h4>Bash History Analysis</h4>'
             for l in bh_lines[:15]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
             forensic_html += '</div>'
@@ -758,7 +758,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
             wp_lines = [l.strip() for l in web_probe_out.split("\n") if l.strip() and not l.startswith("===")]
             critical_probes = [l for l in wp_lines if "[CRITICAL]" in l]
             forensic_html += f'<div class="card"><h4>Web Secret Probes</h4>'
-            forensic_html += kv_row("Exposiciones criticas", f'<span class="badge crit">{len(critical_probes)}</span>' if critical_probes else '<span class="badge ok">0</span>')
+            forensic_html += kv_row("Critical exposures", f'<span class="badge crit">{len(critical_probes)}</span>' if critical_probes else '<span class="badge ok">0</span>')
             for l in wp_lines[:15]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:120])}</div>'
             forensic_html += '</div>'
@@ -766,7 +766,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         # Network exfiltration
         if net_exfil_out:
             ne_lines = [l.strip() for l in net_exfil_out.split("\n") if l.strip() and not l.startswith("===")]
-            forensic_html += f'<div class="card"><h4>Red / Exfiltracion</h4>'
+            forensic_html += f'<div class="card"><h4>Network / Exfiltration</h4>'
             for l in ne_lines[:15]:
                 forensic_html += f'<div style="font-size:10px;padding:1px 0;word-break:break-all">{cesc(l[:130])}</div>'
             forensic_html += '</div>'
@@ -783,39 +783,39 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 
     # Logs section
     sections.append(("logs", "Logs"))
-    logs_html = '<div class="card"><h4>Errores recientes del sistema</h4>'
-    errores_ssh = [l for l in journal if "ssh" in l.lower() or "authentication failure" in l.lower()]
-    logs_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:6px">Eventos con referencias a SSH/autenticacion: {len(errores_ssh)}. Requieren correlacion; no confirman fuerza bruta.</p>'
+    logs_html = '<div class="card"><h4>Recent System Errors</h4>'
+    ssh_events = [l for l in journal if "ssh" in l.lower() or "authentication failure" in l.lower()]
+    logs_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:6px">Events referencing SSH/authentication: {len(ssh_events)}. Correlation is required; these do not confirm brute force.</p>'
     for l in journal[:20]:
         css_cls = "warn" if "failure" in l.lower() or "error" in l.lower() else ""
         logs_html += f'<div style="font-size:10px;padding:1px 0" class="{css_cls}">{cesc(l[:130])}</div>'
     logs_html += '</div>'
 
     # Services section
-    sections.append(("services", "Servicios"))
-    svc_html = '<div class="card"><h4>Servicios systemd activos</h4>'
+    sections.append(("services", "Services"))
+    svc_html = '<div class="card"><h4>Active Systemd Services</h4>'
     for s in services:
         svc_html += f'<span class="badge info" style="margin:2px">{cesc(s)}</span> '
     svc_html += '</div>'
 
     # Build HTML body
-    html = f'''<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+    html = f'''<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Infrastructure Audit — {cesc(host)}</title>{CSS}</head><body>
 {build_nav(sections)}
 <main>
 <h1>Infrastructure Audit Report</h1>
-<p class="sub">Generado: {now} · Host: {cesc(host)} · Run: {cesc(run_id)}</p>
+<p class="sub">Generated: {now} · Host: {cesc(host)} · Run: {cesc(run_id)}</p>
 
 <div class="meta">
-<div class="meta-item"><div class="val">{f_by_sev['CRITICAL']}</div><div class="lbl">Criticos</div></div>
-<div class="meta-item"><div class="val">{f_by_sev['HIGH']}</div><div class="lbl">Altos</div></div>
-<div class="meta-item"><div class="val">{f_by_sev['MEDIUM']}</div><div class="lbl">Medios</div></div>
-<div class="meta-item"><div class="val">{f_by_sev['LOW']}</div><div class="lbl">Bajos</div></div>
-<div class="meta-item"><div class="val">{len(findings_list)}</div><div class="lbl">Total Hallazgos</div></div>
+<div class="meta-item"><div class="val">{f_by_sev['CRITICAL']}</div><div class="lbl">Critical</div></div>
+<div class="meta-item"><div class="val">{f_by_sev['HIGH']}</div><div class="lbl">High</div></div>
+<div class="meta-item"><div class="val">{f_by_sev['MEDIUM']}</div><div class="lbl">Medium</div></div>
+<div class="meta-item"><div class="val">{f_by_sev['LOW']}</div><div class="lbl">Low</div></div>
+<div class="meta-item"><div class="val">{len(findings_list)}</div><div class="lbl">Total Findings</div></div>
 </div>
 
-<h2 id="exec-summary">Resumen Ejecutivo</h2>
+<h2 id="exec-summary">Executive Summary</h2>
 <div class="sev-bar">
 <span class="crit">CRITICAL: {f_by_sev['CRITICAL']}</span>
 <span class="high">HIGH: {f_by_sev['HIGH']}</span>
@@ -824,27 +824,27 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 <span class="info">INFO: {f_by_sev['INFO']}</span>
 </div>
 <div class="card" style="margin-top:12px">
-<h4>Diagnostico</h4>
-<div class="kv"><span class="k">Resumen</span><span class="v">{cesc(executive_summary)}</span></div>
-<div class="kv"><span class="k">Causa raiz</span><span class="v">{cesc(root_cause)}</span></div>
-<div class="kv"><span class="k">Estado actual</span><span class="v">{cesc(current_status)}</span></div>
+<h4>Diagnosis</h4>
+<div class="kv"><span class="k">Summary</span><span class="v">{cesc(executive_summary)}</span></div>
+<div class="kv"><span class="k">Root cause</span><span class="v">{cesc(root_cause)}</span></div>
+<div class="kv"><span class="k">Current status</span><span class="v">{cesc(current_status)}</span></div>
 </div>
-<p style="font-size:12px;color:var(--muted);margin-top:8px">Skills ejecutados: {cesc(skills_exec)}</p>
+<p style="font-size:12px;color:var(--muted);margin-top:8px">Executed skills: {cesc(skills_exec)}</p>
 
-<h2 id="infra-overview">Infraestructura</h2>
+<h2 id="infra-overview">Infrastructure</h2>
 {infra_html}
 
-<h2 id="resources">Recursos</h2>
+<h2 id="resources">Resources</h2>
 <div class="cards">
 {mem_html}
 </div>
-<h3>Procesos (por CPU)</h3>
+<h3>Processes (by CPU)</h3>
 <pre>{cesc(cpu_text)}</pre>
 
-<h2 id="containers">Contenedores</h2>
+<h2 id="containers">Containers</h2>
     {docker_html}
 
-    <h2 id="network">Red</h2>
+    <h2 id="network">Network</h2>
     <div class="cards">
     {network_html}
     </div>
@@ -857,30 +857,30 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     {db_tuning_html}
     {ssh_hardening_html}
 
-    <h2 id="security">Seguridad</h2>
+    <h2 id="security">Security</h2>
 {sec_html}
 
-    <h2 id="forensic">Investigacion Forense</h2>
-    {forensic_html if forensic_html else '<p class="section-empty">No hay datos forenses disponibles.</p>'}
+    <h2 id="forensic">Forensic Investigation</h2>
+    {forensic_html if forensic_html else '<p class="section-empty">No forensic data available.</p>'}
 
 <h2 id="logs">Logs</h2>
 {logs_html}
 
-<h2 id="services">Servicios</h2>
+<h2 id="services">Services</h2>
 {svc_html}
 
-<h2 id="findings">Hallazgos</h2>
+<h2 id="findings">Findings</h2>
 <div class="filter-bar">
-<button class="active" data-sev="">Todos</button>
-<button data-sev="crit">Criticos</button>
-<button data-sev="high">Altos</button>
-<button data-sev="med">Medios</button>
-<button data-sev="low">Bajos</button>
+<button class="active" data-sev="">All</button>
+<button data-sev="crit">Critical</button>
+<button data-sev="high">High</button>
+<button data-sev="med">Medium</button>
+<button data-sev="low">Low</button>
 </div>
 '''
     for f in findings_list:
         s = sev(f.get("severity","INFO"))
-        title = cesc(f.get("title","Sin titulo"))
+        title = cesc(f.get("title","Untitled"))
         cat = cesc(f.get("category",""))
         conf = cesc(f.get("confidence","MEDIUM"))
         finding_id = cesc(f.get("id","?"))
@@ -891,18 +891,18 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
         html += f'''<div class="finding-card {s}">
 <h3>{finding_id} — {title}</h3>
 <div class="tags"><span class="badge {s}">{s}</span><span class="badge info">{cat}</span><span class="badge info">conf: {conf}</span></div>
-<div class="mg"><span class="l">Observacion</span><span>{obs}</span></div>
-<div class="mg"><span class="l">Impacto</span><span>{impact}</span></div>
-<div class="mg"><span class="l">Evidencia</span><pre>{evidence_text}</pre></div>
-<div class="rem"><div class="r"><span class="rk">Recomendacion</span><span class="rv">{rec}</span></div></div>
+<div class="mg"><span class="l">Observation</span><span>{obs}</span></div>
+<div class="mg"><span class="l">Impact</span><span>{impact}</span></div>
+<div class="mg"><span class="l">Evidence</span><pre>{evidence_text}</pre></div>
+<div class="rem"><div class="r"><span class="rk">Recommendation</span><span class="rv">{rec}</span></div></div>
 </div>\n'''
 
     ev_count = len(glob.glob(os.path.join(run_dir, "evidencia", "*.yml")))
-    conditional = ", ".join(conditional_skills) if conditional_skills else "ninguno"
+    conditional = ", ".join(conditional_skills) if conditional_skills else "none"
     html += f'''
-<h2 id="evidence">Evidencia</h2>
-<p style="color:var(--muted);font-size:12px">{ev_count} archivos YAML de evidencia almacenados en <code>reportes/{cesc(run_id)}/evidencia/</code></p>
-<p style="color:var(--muted);font-size:12px">Skills condicionales (se ejecutan solo si se detecta su trigger): {conditional}</p>
+<h2 id="evidence">Evidence</h2>
+<p style="color:var(--muted);font-size:12px">{ev_count} YAML evidence files stored in <code>reportes/{cesc(run_id)}/evidencia/</code></p>
+<p style="color:var(--muted);font-size:12px">Conditional skills (run only when their trigger is detected): {conditional}</p>
 </main>{JS}</body></html>'''
 
     return html

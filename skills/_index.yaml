@@ -466,7 +466,7 @@ skills:
 # ============================================================
 workflows:
   full:
-    description: "Analisis completo de infraestructura (read-only)"
+    description: "Comprehensive infrastructure analysis (read-only)"
     sequence:
       - "system_inventory"
       - "systemd_analysis"
@@ -505,7 +505,7 @@ workflows:
       - "migration_assessment"
 
   quick:
-    description: "Triage rapido de salud (inventario + systemd + CPU/mem/disk/io + red + DNS/firewall + web/TLS + logs + seguridad)"
+    description: "Rapid health triage (inventory + systemd + CPU/memory/disk/I/O + network + DNS/firewall + web/TLS + logs + security)"
     sequence:
       - "system_inventory"
       - "systemd_analysis"
@@ -528,7 +528,7 @@ workflows:
       - "capacity_analysis"
 
   discovery:
-    description: "Solo descubrimiento e inventario"
+    description: "Discovery and inventory only"
     sequence:
       - "system_inventory"
       - "systemd_analysis"
@@ -536,7 +536,7 @@ workflows:
       - "network_analysis"
 
   container:
-    description: "Enfocado en hosts con contenedores (Docker/K8s)"
+    description: "Container host focus (Docker/K8s)"
     sequence:
       - "system_inventory"
       - "systemd_analysis"
@@ -562,7 +562,7 @@ workflows:
       - "ssh_hardening_analysis"
 
   security:
-    description: "Auditoria de seguridad completa"
+    description: "Comprehensive security audit"
     sequence:
       - "system_inventory"
       - "systemd_analysis"
@@ -577,7 +577,7 @@ workflows:
       - "log_analysis"
 
   forensic:
-    description: "Investigacion forense de robo de credenciales (.env / GitHub keys)"
+    description: "Credential theft forensic investigation (.env / GitHub keys)"
     sequence:
       - "system_inventory"
       - "systemd_analysis"

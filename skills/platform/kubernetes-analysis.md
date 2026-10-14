@@ -103,7 +103,7 @@ ssh {{SSH_TARGET}} 'echo "=== CLUSTERROLEBINDINGS ==="; kubectl get clusterroleb
 ### Top nodes / pods
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'echo "=== NODES TOP ==="; kubectl top nodes 2>/dev/null || echo "metrics server no disponible"; echo; echo "=== PODS TOP ==="; kubectl top pods -A --sort-by=cpu 2>/dev/null | head -30 || echo "metrics server no disponible"'
+ssh {{SSH_TARGET}} 'echo "=== NODES TOP ==="; kubectl top nodes 2>/dev/null || echo "metrics server unavailable"; echo; echo "=== PODS TOP ==="; kubectl top pods -A --sort-by=cpu 2>/dev/null | head -30 || echo "metrics server unavailable"'
 ```
 
 ### Resource requests/limits
@@ -115,7 +115,7 @@ ssh {{SSH_TARGET}} 'kubectl get pods -A -o jsonpath='"'"'{range .items[*]}{.meta
 ### Health
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'kubectl get --raw /healthz 2>/dev/null || echo "healthz no disponible"'
+ssh {{SSH_TARGET}} 'kubectl get --raw /healthz 2>/dev/null || echo "healthz unavailable"'
 ```
 
 ### Node lease vs runtime health

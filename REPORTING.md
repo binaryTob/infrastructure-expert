@@ -4,6 +4,11 @@
 
 `reportes/<run-id>/informe-<run-id>.html` — single, offline, self-contained HTML (no external CDN; all CSS/JS inline).
 
+Use English for report headings, analysis, findings, remediation and summaries.
+The renderer declares `lang="en"`. Keep captured evidence in its original language
+after redaction; translating it would alter the source record. Retain existing
+storage path names for compatibility with earlier runs.
+
 ## Sections (in order)
 
 1. **Executive Summary** — overall state, top risks, top recommendations.

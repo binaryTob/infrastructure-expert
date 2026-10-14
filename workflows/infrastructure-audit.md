@@ -1,31 +1,31 @@
 # Workflow: Infrastructure Audit
 
-Flujo principal de analisis de infraestructura. Read-only, reusable contra cualquier servidor Linux accesible por SSH.
-La IA lee `skills/_index.yaml` y este documento para orquestar la ejecucion.
+The main infrastructure analysis workflow. Read-only and reusable across Linux servers accessible over SSH.
+The AI session reads `skills/_index.yaml` and this document to coordinate execution.
 
-## Entrada minima
+## Minimum input
 
-| Variable | Requerido | Default | Descripcion |
+| Variable | Required | Default | Description |
 |----------|-----------|---------|-------------|
-| `SSH_TARGET` | si | — | `user@host` o alias SSH configurado (`~/.ssh/config`) |
+| `SSH_TARGET` | yes | — | `user@host` or a configured SSH alias (`~/.ssh/config`) |
 | `MODE` | no | `full` | `full` / `quick` / `discovery` / `container` / `security` |
 
-## Diagrama de ejecucion
+## Execution diagram
 
 ```
-CONNECT (verificar SSH, sin asumir OS)
+CONNECT (verify SSH without assuming the OS)
   |
   v
-DISCOVER (skills/discovery — amplio, barato, read-only)
+DISCOVER (skills/discovery — broad, low-cost, read-only)
   |
   v
 CLASSIFY -> BUILD INVENTORY -> BUILD GRAPH
   |
   v
-DETECT COMPONENTS -> SELECT SKILLS (solo los que aplican)
+DETECT COMPONENTS -> SELECT SKILLS (applicable skills only)
   |
   v
-RUN ANALYSIS (skills seleccionados, tests no destructivos)
+RUN ANALYSIS (selected skills, non-destructive tests)
   |
   v
 FIND ANOMALIES -> CREATE HYPOTHESES -> TEST -> VERIFY
@@ -34,56 +34,56 @@ FIND ANOMALIES -> CREATE HYPOTHESES -> TEST -> VERIFY
 GENERATE FINDINGS + REMEDIATIONS
   |
   v
-[si migration] MIGRATION ANALYSIS
+[if migration] MIGRATION ANALYSIS
   |
   v
 GENERATE REPORT -> PRINT EXECUTIVE SUMMARY
 ```
 
-## Reglas duras
+## Hard rules
 
-1. **Read-only.** Si un comando no es claramente `ro|info|probe` -> STOP -> registrar como recomendacion, no ejecutar.
-2. **Deteccion dinamica.** Ejecutar skills condicionales solo si su `trigger` se cumple. Si no -> SKIP.
-3. **Sin asunciones.** Distribucion, init system, container runtime, orquestador, ingress, databases, WAF, firewall, cloud provider: todo debe ser *descubierto*, nunca asumido.
-4. **Evidencia primero.** Ninguna afirmacion sobre el servidor sin un registro de evidencia almacenado.
-5. **Hecho vs Hipotesis.** Etiquetar cada afirmacion como `FACT`, `OBSERVATION`, `HYPOTHESIS`, `RISK`, o `RECOMMENDATION`.
-6. **Redaccion de secretos.** Los secretos se *detectan y reportan como metadata* (ubicacion, tipo, riesgo). Los valores se redactan antes de cualquier salida.
-7. **No hardcodear servidores.** Cero `if hostname==`. Toda decision por deteccion de componentes.
-8. **Anti-falsos-positivos.** 1 snapshot no es tendencia. Usar `SAMPLE_COUNT >= 4` para inferencias.
-9. **Reusar evidencia.** Una skill consume evidencia fresca de sus dependencias; no repite comandos para obtener la misma vista.
-10. **Diagnostico bajo demanda.** La presencia de una tecnologia habilita postura/inventario, no troubleshooting, logs profundos ni forense sin sintoma o anomalia.
-11. **Skills excepcionales.** Tecnologia sin soporte -> skill generica o check ad-hoc acotado. Solo persistir una skill si supera el gate completo de `WORKFLOW.md`.
-12. **Concurrencia acotada.** Maximo 3 comandos L1 livianos e independientes; serializar scans globales, logs, DB, dumps de cluster y pruebas del mismo subsistema.
+1. **Read-only.** If a command is not clearly `ro|info|probe` -> STOP -> record a recommendation; do not execute it.
+2. **Dynamic detection.** Execute conditional skills only when their `trigger` is satisfied. Otherwise -> SKIP.
+3. **No assumptions.** Discover the distribution, init system, container runtime, orchestrator, ingress, databases, WAF, firewall and cloud provider; never assume them.
+4. **Evidence first.** No claim about the server without a stored evidence record.
+5. **Fact vs hypothesis.** Label every claim as `FACT`, `OBSERVATION`, `HYPOTHESIS`, `RISK` or `RECOMMENDATION`.
+6. **Secret redaction.** Detect and report secrets as metadata only (location, type, risk). Redact values before output.
+7. **No hardcoded servers.** No `if hostname==`. Base decisions on detected components.
+8. **False-positive control.** One snapshot is not a trend. Use `SAMPLE_COUNT >= 4` for inferences.
+9. **Reuse evidence.** A skill consumes fresh dependency evidence instead of repeating commands for the same view.
+10. **On-demand diagnosis.** Technology presence enables posture/inventory checks, not troubleshooting, deep logs or forensics without a symptom or anomaly.
+11. **Exceptional skill creation.** Unsupported technology -> generic skill or bounded ad-hoc check. Persist a skill only after the complete gate in `WORKFLOW.md` passes.
+12. **Bounded concurrency.** At most three lightweight independent L1 commands; serialize global scans, logs, database checks, cluster dumps and tests of the same subsystem.
 
-## Modos
+## Modes
 
-| Modo | Seleccion | Descripcion |
+| Mode | Selection | Description |
 |------|-----------|-------------|
-| `full` | candidatos de `_index.yaml` + triggers | Analisis completo, condicionado por evidencia |
-| `quick` | conjunto minimo + dependencias | Triage rapido |
-| `discovery` | inventario, systemd, procesos, red | Solo descubrimiento e inventario |
-| `container` | candidatos Docker/K8s + dependencias | Host de contenedores; diagnostico solo ante anomalías |
-| `security` | postura de seguridad + dependencias | Auditoria de seguridad |
-| `forensic` | candidatos forenses + dependencias | Solo con objetivo/indicadores forenses explicitos |
+| `full` | `_index.yaml` candidates + triggers | Comprehensive evidence-driven analysis |
+| `quick` | minimal set + dependencies | Rapid triage |
+| `discovery` | inventory, systemd, processes, network | Discovery and inventory only |
+| `container` | Docker/K8s candidates + dependencies | Container host; diagnosis only for anomalies |
+| `security` | security posture + dependencies | Security audit |
+| `forensic` | forensic candidates + dependencies | Explicit forensic objective/indicators required |
 
-Los conteos no se hardcodean: se derivan del catalogo y pueden cambiar. La secuencia del modo es un conjunto candidato; el agente agrega dependencias, ordena topologicamente y aplica triggers antes de ejecutar.
+Counts are derived from the catalog and may change. Each mode's sequence is a candidate set; the agent adds dependencies, sorts topologically and evaluates triggers before execution.
 
-## Directorio de reportes
+## Report directory
 
-Toda la evidencia y reportes se guardan en `reportes/<run-id>/`:
-- `reportes/<run-id>/evidencia/` — registros YAML por comando
-- `reportes/<run-id>/findings/` — hallazgos
-- `reportes/<run-id>/inventory.yaml` — inventario
-- `reportes/<run-id>/graph.yaml` — grafo de infraestructura
-- `reportes/<run-id>/informe-<run-id>.html` — reporte HTML offline
+Store evidence and reports in `reportes/<run-id>/`:
+- `reportes/<run-id>/evidencia/` — per-command YAML records
+- `reportes/<run-id>/findings/` — findings
+- `reportes/<run-id>/inventory.yaml` — inventory
+- `reportes/<run-id>/graph.yaml` — infrastructure graph
+- `reportes/<run-id>/informe-<run-id>.html` — offline HTML report
 
-## Tecnologia sin skill
+## Technology without a dedicated skill
 
-No crear una skill por presencia de producto. Registrar la tecnologia en inventario, reutilizar skills genericas y, si queda una pregunta concreta, ejecutar un check ad-hoc L1/L2 acotado mediante `scripts/ssh_exec.sh`.
+Do not create a skill merely because a product is present. Record the technology in inventory, reuse generic skills and, if a concrete question remains, run a bounded L1/L2 ad-hoc check through `scripts/ssh_exec.sh`.
 
-Persistir una skill solo cuando sea necesaria para el objetivo actual, reutilizable entre hosts/runs, no se solape con capacidades existentes, use interfaces estables, minimice comandos y supere validacion + ejecucion. Ver el gate vinculante en `WORKFLOW.md`.
+Persist a skill only when it is necessary for the current objective, reusable across hosts/runs, non-overlapping, based on stable interfaces, command-efficient and validated through review and execution. See the binding gate in `WORKFLOW.md`.
 
-## Safety levels (ver SAFETY.md)
+## Safety levels (see SAFETY.md)
 
 | Level | Name | Scope | Default |
 |-------|------|-------|---------|

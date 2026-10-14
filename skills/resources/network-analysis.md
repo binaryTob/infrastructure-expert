@@ -59,7 +59,7 @@ ssh {{SSH_TARGET}} 'ss -H -tnp state established 2>/dev/null | head -60'
 ### Firewall
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'echo "=== UFW ==="; command -v ufw >/dev/null && ufw status verbose 2>/dev/null || echo "ufw no presente"; echo; echo "=== IPTABLES ==="; iptables -S 2>/dev/null | head -60; echo; echo "=== NFT ==="; nft list ruleset 2>/dev/null | head -80'
+ssh {{SSH_TARGET}} 'echo "=== UFW ==="; command -v ufw >/dev/null && ufw status verbose 2>/dev/null || echo "ufw unavailable"; echo; echo "=== IPTABLES ==="; iptables -S 2>/dev/null | head -60; echo; echo "=== NFT ==="; nft list ruleset 2>/dev/null | head -80'
 ```
 
 ### Connection count summary
@@ -94,10 +94,10 @@ ssh {{SSH_TARGET}} 'for host in localhost $(hostname -I 2>/dev/null); do curl -s
 - Read `kubernetes/netpol.txt` from kubernetes_analysis for NetworkPolicy evidence.
 - Read `kubernetes/svc.txt` from kubernetes_analysis for service inventory.
 - No NetworkPolicy = full east-west pod reachability.
-- Counters acumulados prueban historial, no tasa actual. Correlacionar con `sar -n EDEV`
-  o dos snapshots antes de atribuir un incidente a drops/retransmisiones.
-- Retransmisiones/RTO altos en `ss -tin` sobre el mismo destino del fallo aportan la
-  segunda fuente necesaria para confirmar degradacion del camino TCP.
+- Cumulative counters show history, not the current rate. Correlate with `sar -n EDEV`
+  or two snapshots before attributing an incident to drops/retransmissions.
+- High retransmissions/RTO in `ss -tin` for the failing destination provide the
+  second source needed to confirm TCP path degradation.
 
 ## Evidence
 - `interfaces.txt`, `routes.txt`, `dns.txt`, `listening.txt`, `established.txt`, `firewall.txt`, `conn-count.txt`, `transport-errors.txt`, `k8s-hostnet.txt`, `edge-curl.txt`

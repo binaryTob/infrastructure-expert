@@ -86,7 +86,7 @@ ssh {{SSH_TARGET}} 'for d in /etc/nginx /etc/traefik /etc/apache2 /etc/httpd /et
 ### Kubernetes presence check (1 command only — full analysis in kubernetes_analysis)
 ```bash
 # [risk:ro] [mode:auto] [requires:kubectl]
-ssh {{SSH_TARGET}} 'kubectl get nodes -o wide 2>/dev/null || echo "kubectl no disponible"'
+ssh {{SSH_TARGET}} 'kubectl get nodes -o wide 2>/dev/null || echo "kubectl unavailable"'
 ```
 
 ## Analysis

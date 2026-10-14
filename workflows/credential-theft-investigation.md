@@ -1,16 +1,16 @@
 # Workflow: Credential Theft Investigation
 
-Investigación forense de robo de credenciales (.env / GitHub push keys).
-Ejecuta skills existentes + 7 skills forenses nuevos para reconstruir el vector de ataque.
+Forensic investigation of credential theft (.env / GitHub push keys).
+Uses discovery, security and forensic catalog skills to reconstruct the attack vector.
 
-## Entrada mínima
+## Minimum input
 
-| Variable | Requerido | Default | Descripción |
+| Variable | Required | Default | Description |
 |----------|-----------|---------|-------------|
-| `SSH_TARGET` | si | — | `user@host` o alias SSH configurado |
-| `MODE` | no | `forensic` | `forensic` (default para este workflow) |
+| `SSH_TARGET` | yes | — | `user@host` or a configured SSH alias |
+| `MODE` | no | `forensic` | `forensic` (default for this workflow) |
 
-## Diagrama de ejecución
+## Execution diagram
 
 ```
 PHASE 1: DISCOVERY (existing skills)
@@ -117,43 +117,43 @@ PHASE 10: REPORT
   └── Print executive summary
 ```
 
-## Reglas de ejecución por fase
+## Per-phase execution rules
 
-### Fase 1-2 (Discovery + Security Base)
-- Ejecutar TODOS los skills sin condicionales
-- Son la base del inventario y postura de seguridad
+### Phases 1–2 (Discovery + Security Baseline)
+- Run all unconditional skills.
+- They establish inventory and security posture.
 
-### Fase 3-5 (Forensic Skills — NUEVOS)
-- Ejecutar TODOS los skills forenses
-- `docker_secrets_analysis`: solo si Docker está presente (trigger automático)
-- `web_secret_exposure`: solo si hay servidor web (trigger automático)
-- Los demás se ejecutan siempre
+### Phases 3–5 (Forensic Skills)
+- Run the forensic skills, subject to their triggers.
+- `docker_secrets_analysis`: only when Docker is present (automatic trigger).
+- `web_secret_exposure`: only when a web server is present (automatic trigger).
+- Run the remaining unconditional skills.
 
-### Fase 6 (Platform)
-- Ejecutar SOLO si el componente fue detectado en Fase 1
-- Seguir triggers de `_index.yaml`
+### Phase 6 (Platform)
+- Run only if the component was detected in Phase 1.
+- Follow `_index.yaml` triggers.
 
-### Fase 7-8 (Resources + Analysis)
-- Ejecutar todos — son cheap y provide contexto
+### Phases 7–8 (Resources + Analysis)
+- Run all listed skills: they provide low-cost context.
 
-## Reglas duras (heredadas de infrastructure-audit.md)
+## Hard rules (inherited from infrastructure-audit.md)
 
-1. **Read-only.** Nada que modifique el servidor.
-2. **Evidence first.** Cada afirmación con evidencia almacenada.
-3. **Fact vs Hypothesis.** Etiquetar cada claim.
-4. **Secret redaction.** Valores nunca en evidencia/reporte.
-5. **No assumptions.** Descubrir, nunca asumir.
+1. **Read-only.** Do not modify the server.
+2. **Evidence first.** Every claim needs stored evidence.
+3. **Fact vs hypothesis.** Label every claim.
+4. **Secret redaction.** Never include secret values in evidence/reports.
+5. **No assumptions.** Discover; never assume.
 
 ## Output
 
-Directorio de reportes: `reportes/<run-id>/`
-- `reportes/<run-id>/evidencia/` — YAML records por comando
-- `reportes/<run-id>/findings/` — hallazgos
-- `reportes/<run-id>/findings.yaml` — findings estructurados
-- `reportes/<run-id>/inventory.yaml` — inventario
-- `reportes/<run-id>/informe-forense-<run-id>.html` — reporte HTML forense
+Report directory: `reportes/<run-id>/`
+- `reportes/<run-id>/evidencia/` — per-command YAML records
+- `reportes/<run-id>/findings/` — findings
+- `reportes/<run-id>/findings.yaml` — structured findings
+- `reportes/<run-id>/inventory.yaml` — inventory
+- `reportes/<run-id>/informe-forense-<run-id>.html` — forensic HTML report
 
-## Safety levels (ver SAFETY.md)
+## Safety levels (see SAFETY.md)
 
 | Level | Name | Scope | Default |
 |-------|------|-------|---------|
@@ -161,9 +161,9 @@ Directorio de reportes: `reportes/<run-id>/`
 | 2 | TEST | Non-destructive tests (HTTP probes) | On by default |
 | 3 | CHANGE | Mutating actions | Off — requires explicit approval |
 
-## Tecnologias sin skill
+## Technology without a dedicated skill
 
-La presencia de una tecnologia no justifica crear una skill. Reutilizar primero las
-capacidades forenses genericas y ejecutar checks ad-hoc L1/L2 acotados cuando falte
-evidencia. Persistir una skill solo si cumple todos los criterios de necesidad,
-reutilizacion, no solapamiento, estabilidad y validacion de `WORKFLOW.md`.
+Technology presence alone does not justify a new skill. Reuse generic forensic
+capabilities first and run bounded L1/L2 ad-hoc checks when evidence is missing.
+Persist a skill only if it meets every necessity, reuse, non-overlap, stability
+and validation criterion in `WORKFLOW.md`.

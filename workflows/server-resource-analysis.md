@@ -1,9 +1,9 @@
 # Workflow: Server Resource Analysis
 
-Flujo enfocado en analisis de recursos y performance de servidores Linux.
-Read-only, reusable contra cualquier servidor.
+Workflow focused on Linux server resource and performance analysis.
+Read-only and reusable across servers.
 
-## Diagrama
+## Diagram
 
 ```
 PRE-FLIGHT CHECK (SSH reachable? tools present?)
@@ -36,19 +36,19 @@ OPTIMIZE (optimization_analysis)
 FINDINGS + REPORT
 ```
 
-## Modos de ejecucion
+## Execution modes
 
-| Modo | Skills | Cuando |
+| Mode | Skills | When |
 |------|--------|--------|
-| `full` | 22 | Analisis completo |
-| `quick` | 6 | Triage rapido (inventario + CPU/mem/disk/io + logs) |
-| `container` | 6 | Host de contenedores (Docker + K8s + process + net + capacity) |
+| `full` | 22 | Comprehensive analysis |
+| `quick` | 6 | Rapid triage (inventory + CPU/memory/disk/I/O + logs) |
+| `container` | 6 | Container host (Docker + K8s + processes + network + capacity) |
 
-## Segunda ejecucion (post-optimizacion)
+## Second run (post-optimization)
 
 ```
 BASELINE (reportes/run-1/)
-  aplicar cambios (externo, con aprobacion)
+  apply changes (outside the framework, with approval)
 POST-OPTIMIZATION (reportes/run-2/)
 COMPARISON (optimization-comparison.md)
 ```

@@ -12,7 +12,7 @@ provides: ["cert_expiry", "cert_issuer", "cert_sans", "cert_chain", "tls_protoco
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/tls" }
   SSH_TARGET: { type: "string", required: true }
-  WARN_DAYS: { type: "integer", default: 30, description: "Umbral de dias para aviso de expiracion" }
+  WARN_DAYS: { type: "integer", default: 30, description: "Certificate expiry warning threshold in days" }
 output: { format: "json", schema: "output_schema" }
 ---
 

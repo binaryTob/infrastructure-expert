@@ -26,6 +26,7 @@ See `SAFETY.md`.
 6. **Migration rule.** A migration objective does NOT start with the migration plan. It starts with fully understanding the current state.
 7. **Skill economy.** Discovering a technology is never, by itself, a reason to create a skill. Reuse existing capabilities and bounded ad-hoc checks first. Persist only capabilities that are necessary, non-overlapping, host-agnostic, and expected to be reused across targets or runs.
 8. **Single execution path.** Every remote command is executed through `scripts/ssh_exec.sh`. Command blocks in skills describe remote payloads; never run their literal `ssh` examples directly or write raw output to evidence.
+9. **English narrative output.** Write analysis, findings, recommendations and executive summaries in English. Preserve captured target output verbatim after redaction; do not translate evidence or rename existing storage paths.
 
 ## How to run an audit (operator)
 
@@ -36,8 +37,8 @@ See `SAFETY.md`.
 
 ## How to run a diagnosis (operator)
 
-If you are reporting a **symptom** (not asking for a full audit) — e.g. "el sitio da 502",
-"el disco se llenó", "un contenedor se reinicia solo" — the agent follows
+If you are reporting a **symptom** (not asking for a full audit) — e.g. "the site returns 502",
+"the disk is full", "a container keeps restarting" — the agent follows
 `workflows/incident-triage.md` and reads `lib/diagnosis.yaml` (symptom -> hypotheses ->
 evidence -> skills). It runs only the skills needed to find the root cause and the
 remediation, and it never fixes anything without Level 3 approval.
@@ -91,7 +92,7 @@ infrastructure-expert/
 │   ├── observability/     <- monitoring stack health
 │   ├── backup/            <- backup mechanisms detection
 │   └── migration/         <- A->B migration assessment
-├── workflows/             <- entry points: audit (por modo) + incident triage
+├── workflows/             <- entry points: audit (by mode) + incident triage
 ├── templates/             <- report templates
 └── reportes/              <- scan data + reports (gitignored)
 ```

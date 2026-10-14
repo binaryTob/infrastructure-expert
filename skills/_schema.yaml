@@ -19,44 +19,44 @@ optional:
   - references
 
 parameter_types:
-  string: "texto libre (path, hostname)"
-  integer: "numero entero (PID, puerto, nucleos)"
-  float: "numero decimal (umbral % CPU, GB RAM)"
+  string: "free text (path, hostname)"
+  integer: "integer (PID, port, core count)"
+  float: "decimal number (CPU percentage threshold, RAM in GB)"
   datetime: "timestamp ISO 8601"
-  duration: "intervalo (1h, 30m, 7d)"
+  duration: "interval (1h, 30m, 7d)"
   boolean: "true/false"
-  enum: "lista cerrada de valores"
-  filepath: "ruta validada en filesystem remoto"
-  regex: "expresion regular"
+  enum: "closed set of values"
+  filepath: "validated remote filesystem path"
+  regex: "regular expression"
 
 block_risk_levels:
-  ro: "readonly — solo lectura, cero modificacion al servidor"
-  info: "readonly — consulta de metadata inofensiva"
-  probe: "readonly — mediciones repetidas en el tiempo (snapshots), sin carga artificial"
+  ro: "read-only — no server modifications"
+  info: "read-only — non-mutating metadata query"
+  probe: "read-only — repeated measurements (snapshots), without artificial load"
 
 execution_modes:
-  auto: "ejecucion automatica sin confirmacion (solo ro/info/probe)"
-  confirm: "requiere confirmacion explicita (acciones no read-only)"
-  manual: "no automatizable, requiere intervencion humana"
+  auto: "automatic execution without confirmation (ro/info/probe only)"
+  confirm: "requires explicit confirmation (non-read-only actions)"
+  manual: "not automated; requires human intervention"
 
 severity_levels:
-  CRITICAL: "puede causar caida, perdida de datos, indisponibilidad"
-  HIGH: "problema importante, resolverse pronto"
-  MEDIUM: "optimizacion recomendable o gap de buenas practicas"
-  LOW: "mejora menor o de conveniencia"
-  INFO: "observacion sin accion inmediata"
+  CRITICAL: "may cause an outage, data loss or unavailability"
+  HIGH: "significant issue requiring prompt resolution"
+  MEDIUM: "recommended optimization or best-practice gap"
+  LOW: "minor or convenience improvement"
+  INFO: "observation without immediate action"
 
 confidence_levels:
-  HIGH: "evidencia directa y reproducible"
-  MEDIUM: "evidencia indirecta o de un solo snapshot, requiere validacion"
-  LOW: "indicio debil, no concluyente"
-  INSUFFICIENT_DATA: "no hay datos suficientes para afirmar nada"
+  HIGH: "direct, reproducible evidence"
+  MEDIUM: "indirect or single-snapshot evidence; requires validation"
+  LOW: "weak, inconclusive indication"
+  INSUFFICIENT_DATA: "insufficient data to support a claim"
 
 capacity_status:
-  NORMAL: "consumo esperado y estable"
-  WATCH: "monitorear, sin accion inmediata"
-  WARNING: "acercandose a limite o con tendencia negativa"
-  CRITICAL: "en o mas alla del limite, accion inmediata"
+  NORMAL: "expected, stable usage"
+  WATCH: "monitor; no immediate action"
+  WARNING: "approaching a limit or trending negatively"
+  CRITICAL: "at or beyond a limit; immediate action required"
 
 output_schema:
   type: object
@@ -67,7 +67,7 @@ output_schema:
     risk_level: { type: string, enum: [ro, info, probe] }
     evidence_files:
       type: array
-      items: { type: string, description: "rutas a artefactos de evidencia" }
+      items: { type: string, description: "paths to evidence artifacts" }
     findings:
       type: array
       items:

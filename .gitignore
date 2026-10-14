@@ -3,7 +3,7 @@
 # SSH target config (contains host/user/port — no credentials, but host-specific)
 config/target.json
 
-# Reportes: escaneos, evidencia y reportes generados
+# Generated scan data, evidence and reports
 reportes/
 
 # Current run id marker (temporary state)
@@ -26,7 +26,7 @@ __pycache__/
 *.tmp
 *.bak
 
-# ── Secrets / credentials (defensivo) ─────────────────────────────────────
+# ── Secrets / credentials (defensive exclusions) ─────────────────────────
 
 *.key
 *.pem

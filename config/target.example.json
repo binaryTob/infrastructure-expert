@@ -7,7 +7,7 @@
     "connect_timeout": 15,
     "command_timeout": 60
   },
-  "objective": "Analizar completamente la infraestructura.",
-  "context": "Nivel de seguridad: L1+L2 solamente (no corras ningun comando que pueda modificar algo en el servidor, solo verificar).",
+  "objective": "Analyze the infrastructure comprehensively.",
+  "context": "Safety level: L1+L2 only. Do not run commands that could modify the server; observe and verify only.",
   "mode": "FULL"
 }

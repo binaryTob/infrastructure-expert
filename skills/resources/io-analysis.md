@@ -32,7 +32,7 @@ ssh {{SSH_TARGET}} 'vmstat 1 3 2>/dev/null'
 ### iostat (if available)
 ```bash
 # [risk:ro] [mode:auto] [requires:iostat]
-ssh {{SSH_TARGET}} 'iostat -x 1 2 2>/dev/null || echo "iostat ausente"'
+ssh {{SSH_TARGET}} 'iostat -x 1 2 2>/dev/null || echo "iostat unavailable"'
 ```
 
 ### iowait temporal series

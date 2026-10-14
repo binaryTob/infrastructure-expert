@@ -126,14 +126,15 @@ class ReportTests(unittest.TestCase):
             html = report.gen_html(str(run), inventory=inventory)
             self.assertNotIn('<img src=x', html)
             self.assertIn('&lt;img', html)
-            self.assertIn('no registrado', html)
-            self.assertNotIn('Skills ejecutados: system-inventory', html)
+            self.assertIn('<html lang="en">', html)
+            self.assertIn('not recorded', html)
+            self.assertNotIn('Executed skills: system-inventory', html)
             (run / 'skills-used.yaml').write_text(yaml.safe_dump({'skills': [
                 {'id': '<completed>', 'status': 'executed'},
                 {'id': 'never-ran', 'status': 'pending'},
             ]}))
             html = report.gen_html(str(run), inventory=inventory)
-            self.assertIn('Skills ejecutados: &lt;completed&gt;', html)
+            self.assertIn('Executed skills: &lt;completed&gt;', html)
             self.assertNotIn('never-ran', html)
 
 

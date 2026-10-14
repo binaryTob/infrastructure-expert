@@ -10,7 +10,7 @@ depends_on: ["system_inventory"]
 provides: ["mem_usage", "swap", "mem_per_process", "psi"]
 triggers: []
 false_positives:
-  - "used~=total sin presion real si cache+buffers alto y available holgada -> NORMAL."
+  - "used~=total without actual pressure when cache+buffers is high and available memory is sufficient -> NORMAL."
 parameters:
   OUTPUT_DIR: { type: "filepath", default: "{{RUN_DIR}}/memory" }
   SSH_TARGET: { type: "string", required: true }
@@ -38,7 +38,7 @@ ssh {{SSH_TARGET}} 'echo "=== FREE ==="; free -h; echo; echo "=== MEMINFO ==="; 
 ### Top processes by memory (RSS)
 ```bash
 # [risk:ro] [mode:auto]
-ssh {{SSH_TARGET}} 'ps -eo pid,ppid,user,rss,vsz,pmem,comm,args --sort=-rss | head -25; echo; echo "=== smem (if exists) ==="; command -v smem >/dev/null && smem -t -k | tail -30 || echo "smem ausente"'
+ssh {{SSH_TARGET}} 'ps -eo pid,ppid,user,rss,vsz,pmem,comm,args --sort=-rss | head -25; echo; echo "=== smem (if exists) ==="; command -v smem >/dev/null && smem -t -k | tail -30 || echo "smem unavailable"'
 ```
 
 ### Swap/available trend series
@@ -50,7 +50,7 @@ snapshot_loop "memory-trend" "memory" 'awk "/SwapTotal|SwapFree|MemAvailable/{pr
 ### /proc/pressure/memory (PSI) if exists
 ```bash
 # [risk:ro] [mode:auto] [requires:PSI]
-ssh {{SSH_TARGET}} 'cat /proc/pressure/memory 2>/dev/null || echo "PSI mem ausente"'
+ssh {{SSH_TARGET}} 'cat /proc/pressure/memory 2>/dev/null || echo "memory PSI unavailable"'
 ```
 
 ## Analysis

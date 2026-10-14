@@ -59,6 +59,12 @@ All scan data and reports are stored in `reportes/<run-id>/`:
 - `reportes/<run-id>/informe-<run-id>.html` — self-contained offline HTML report
 - Executive summary printed to the console.
 
+Documentation, agent-authored findings and generated report labels use English.
+The existing `reportes/`, `evidencia/` and `informe-*.html` storage names are retained
+for compatibility with existing runs; they are path identifiers, not a report
+language setting. Captured target output is preserved as evidence in its original
+language rather than translated.
+
 ## Safety
 
 | Level | Description | Default |

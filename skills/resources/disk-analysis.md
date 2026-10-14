@@ -50,7 +50,7 @@ ssh {{SSH_TARGET}} 'find / -xdev -type f -size +100M -exec ls -lh {} \; 2>/dev/n
 ### Disk monitoring (smartctl if available)
 ```bash
 # [risk:ro] [mode:auto] [requires:smartctl]
-ssh {{SSH_TARGET}} 'for d in $(lsblk -nd -o NAME 2>/dev/null); do smartctl -H /dev/$d 2>/dev/null; done || echo "smartctl no disponible"'
+ssh {{SSH_TARGET}} 'for d in $(lsblk -nd -o NAME 2>/dev/null); do smartctl -H /dev/$d 2>/dev/null; done || echo "smartctl unavailable"'
 ```
 
 ## Analysis

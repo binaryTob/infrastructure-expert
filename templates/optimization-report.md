@@ -1,15 +1,15 @@
 # Optimization Report — {{HOSTNAME}}
 
-**Fecha:** {{DATE}} · **Server:** {{SERVER_NAME}} · **Read-only / advisory**
+**Date:** {{DATE}} · **Server:** {{SERVER_NAME}} · **Read-only / advisory**
 
-> Ningun cambio fue aplicado. Las configuraciones/comandos listados son **sugerencias**.
-> Cada recomendacion incluye validacion y rollback.
+> No changes were applied. Listed configurations/commands are **suggestions**.
+> Each recommendation includes validation and rollback.
 
 ---
 
-## Tabla resumen
+## Summary table
 
-| ID | Area | Problema | Evidencia | Impacto | Riesgo | Esfuerzo | Prioridad |
+| ID | Area | Problem | Evidence | Impact | Risk | Effort | Priority |
 | -- | ---- | -------- | --------- | ------- | ------ | -------- | --------- |
 {{#OPTIMIZATION_ROWS}}
 | {{ID}} | {{AREA}} | {{PROBLEM}} | {{EVIDENCE_SHORT}} | {{IMPACT}} | {{RISK}} | {{EFFORT}} | {{PRIORITY}} |
@@ -17,27 +17,27 @@
 
 ---
 
-## Detalle por recomendacion
+## Recommendation details
 
 {{#OPTIMIZATION_ITEMS}}
 ### {{ID}} — {{TITLE}}
-- **Categoria:** {{CATEGORY}}  ·  **Prioridad:** {{PRIORITY}}  ·  **Riesgo:** {{RISK}}  ·  **Esfuerzo:** {{EFFORT}}  ·  **Confianza:** {{CONFIDENCE}}
+- **Category:** {{CATEGORY}}  ·  **Priority:** {{PRIORITY}}  ·  **Risk:** {{RISK}}  ·  **Effort:** {{EFFORT}}  ·  **Confidence:** {{CONFIDENCE}}
 
-**Problema**
+**Problem**
 {{PROBLEM}}
 
-**Evidencia**
+**Evidence**
 ```
 {{EVIDENCE}}
 ```
 
-**Impacto esperado**
+**Expected impact**
 {{IMPACT}}
 
-**Recomendacion**
+**Recommendation**
 {{RECOMMENDATION}}
 
-**Configuracion / comando sugerido (no ejecutado)**
+**Suggested configuration / command (not executed)**
 ```
 {{CONFIG_SUGGESTED}}
 ```
@@ -45,16 +45,16 @@
 **Rollback**
 {{ROLLBACK}}
 
-**Validacion (before -> after)**
+**Validation (before -> after)**
 - Before:  {{BEFORE_METRIC}}
-- Cambio:  {{CHANGE}}
-- After esperado:  {{AFTER_METRIC}}
-- Como medir:  {{VALIDATION_CMD}}
+- Change:  {{CHANGE}}
+- Expected after:  {{AFTER_METRIC}}
+- How to measure:  {{VALIDATION_CMD}}
 
 ---
 {{/OPTIMIZATION_ITEMS}}
 
-## Proximos pasos
-1. Aplicar primero las P0 (CRITICAL) seguidas de P1.
-2. Re-ejecutar el analisis (fase POST-OPTIMIZATION) y comparar.
-3. Generar `optimization-comparison.md`.
+## Next steps
+1. Address P0 (CRITICAL) recommendations first, followed by P1.
+2. Rerun analysis (POST-OPTIMIZATION phase) and compare.
+3. Generate `optimization-comparison.md`.

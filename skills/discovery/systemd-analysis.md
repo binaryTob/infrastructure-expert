@@ -16,13 +16,13 @@ output: { format: "json", schema: "output_schema" }
 ---
 # Systemd Analysis
 
-Skill unificado que combina el inventario de services (running/enabled/failed/timers/sockets)
-con el analisis de recursos por unidad (MemoryCurrent, CPUUsageNSec, NRestarts, TasksCurrent).
-Un solo skill evita ejecutar `systemctl list-units` 6 veces por auditoria.
+A unified skill combining service inventory (running/enabled/failed/timers/sockets)
+with per-unit resource analysis (MemoryCurrent, CPUUsageNSec, NRestarts, TasksCurrent).
+One skill avoids running `systemctl list-units` six times per audit.
 
-## Comandos
+## Commands
 
-### Running services (una sola vez)
+### Running services (once only)
 ```bash
 # [risk:ro] [mode:auto]
 ssh {{SSH_TARGET}} 'systemctl list-units --type=service --state=running --no-pager --no-legend 2>/dev/null'

@@ -2,8 +2,8 @@ version: "1.0"
 # ---------------------------------------------------------------------------
 # Symptom-driven diagnosis map.
 #
-# The agent reads this file when the operator reports a *symptom* ("el sitio
-# da 502", "el disco se llenó", "un contenedor se reinicia solo") and needs to
+# The agent reads this file when the operator reports a *symptom* ("the site
+# returns 502", "the disk is full", "a container keeps restarting") and needs to
 # go from symptom -> ranked hypotheses -> evidence -> root cause -> remediation.
 #
 # This file is DATA, not code. Adding a new symptom is a YAML edit, no Python
@@ -14,7 +14,7 @@ version: "1.0"
 
 symptoms:
   - id: "http_5xx"
-    label: "Sitio responde 500 / 502 / 503 / 504"
+    label: "Site returns 500 / 502 / 503 / 504"
     order:
       - "502_bad_gateway"
       - "503_service_unavailable"
@@ -22,64 +22,64 @@ symptoms:
       - "500_internal_error"
 
   - id: "cert_error"
-    label: "Error de certificado / TLS en el navegador"
+    label: "Browser certificate / TLS error"
     order:
       - "cert_expired"
       - "cert_mismatch"
 
   - id: "site_down"
-    label: "Sitio caído / connection refused / timeout"
+    label: "Site down / connection refused / timeout"
     order:
       - "service_down"
       - "container_down"
       - "port_not_listening"
 
   - id: "disk_full"
-    label: "Disco lleno / escritura falla"
+    label: "Disk full / writes fail"
     order: ["disk_full"]
 
   - id: "oom"
-    label: "Proceso muerto / matado / memoria agotada"
+    label: "Process terminated / killed / out of memory"
     order: ["oom_kill"]
 
   - id: "high_load"
-    label: "CPU / load alto, lentitud general"
+    label: "High CPU / load, general slowdown"
     order: ["runaway_process"]
 
   - id: "slow"
-    label: "Respuestas lentas"
+    label: "Slow responses"
     order: ["slow_backend", "slow_db"]
 
   - id: "db_error"
-    label: "Fallo de conexión a base de datos"
+    label: "Database connection failure"
     order: ["db_unreachable"]
 
   - id: "crash_loop"
-    label: "Contenedor en crash loop / reinicios"
+    label: "Container crash loop / restarts"
     order: ["crash_loop"]
 
   - id: "dns_error"
-    label: "Errores DNS (EAI_AGAIN / ENOTFOUND)"
+    label: "DNS errors (EAI_AGAIN / ENOTFOUND)"
     order: ["dns_failure"]
 
   - id: "log_flood"
-    label: "Logs creciendo sin control / disco por logs"
+    label: "Uncontrolled log growth / disk filled by logs"
     order: ["log_growth"]
 
   - id: "backup_gap"
-    label: "Sospecha de backups inexistentes / no probados"
+    label: "Suspected missing / untested backups"
     order: ["backup_missing"]
 
   - id: "teleport_agent_failure"
-    label: "Agente Teleport desconectado o fuera de servicio"
+    label: "Teleport agent disconnected or unavailable"
     order: ["teleport_service_failure"]
 
   - id: "database_cluster_flap"
-    label: "Failover frecuente / backend PostgreSQL intermitente / Patroni sin primario"
+    label: "Frequent failover / intermittent PostgreSQL backend / no Patroni primary"
     order: ["distributed_consensus_latency", "database_backend_flap"]
 
   - id: "credential_theft"
-    label: "Sospecha de robo de credenciales (.env / GitHub keys)"
+    label: "Suspected credential theft (.env / GitHub keys)"
     order:
       - "env_files_exposed"
       - "git_credentials_stolen"
@@ -92,390 +92,390 @@ hypotheses:
   502_bad_gateway:
     label: "502 Bad Gateway"
     checks:
-      - name: "Upstream backend caído o no escuchando"
+      - name: "Upstream backend unavailable or not listening"
         how: >
-          El proxy (Apache/nginx) llegó al upstream pero no obtuvo respuesta válida.
-          El contenedor puede estar 'up' pero su proceso de app muerto.
+          The proxy (Apache/nginx) reached the upstream but received no valid response.
+          The container may be 'up' while its application process has terminated.
         evidence: ["web_server_analysis.upstream_health", "web_server_analysis.proxy_upstream_map"]
         confirm: "curl -s -o /dev/null -w '%{http_code}' http://<upstream-host>:<port>/  -> 000/refused"
         skills: ["web_server_analysis", "docker_troubleshooting", "container_log_analysis", "log_analysis"]
-        remediation: "Levantar el backend (Level 3: reiniciar servicio/contenedor) y eliminar pid obsoleto si aplica."
-      - name: "Proxy apunta a host/puerto equivocado"
-        how: "Config drift entre el vhost (ProxyPass) y el puerto real donde escucha la app."
+        remediation: "Bring up the backend (Level 3: restart the service/container) and remove a stale PID file if applicable."
+      - name: "Proxy points to the wrong host/port"
+        how: "Configuration drift between the vhost (ProxyPass) and the application's actual listening port."
         evidence: ["web_server_analysis.proxy_upstream_map", "network_analysis.port_process_map"]
-        confirm: "Comparar ProxyPass target vs ss -tlnp y docker port."
+        confirm: "Compare the ProxyPass target with ss -tlnp and docker port."
         skills: ["web_server_analysis", "network_analysis"]
-        remediation: "Corregir la directiva ProxyPass/proxy_pass al puerto correcto (Level 3)."
-      - name: "Upstream muere al recibir la petición (OOM/segfault)"
-        how: "El backend responde a ping pero crashea al procesar (memoria, DB lenta)."
+        remediation: "Point ProxyPass/proxy_pass to the correct port (Level 3)."
+      - name: "Upstream terminates while handling the request (OOM/segfault)"
+        how: "The backend responds to ping but crashes during processing (memory pressure, slow database)."
         evidence: ["log_analysis.oom_in_logs", "container_log_analysis.container_crash_logs"]
         confirm: "dmesg | grep -i oom; docker inspect OOMKilled."
         skills: ["log_analysis", "docker_troubleshooting"]
-        remediation: "Reducir consumo de memoria / habilitar swap / subir RAM (Level 3)."
+        remediation: "Reduce memory usage / enable swap / increase RAM (Level 3)."
 
   503_service_unavailable:
     label: "503 Service Unavailable"
     checks:
-      - name: "Sin backends sanos / workers agotados"
-        how: "Todos los workers ocupados o el pool de backend vacío."
+      - name: "No healthy backends / exhausted workers"
+        how: "All workers are busy or the backend pool is empty."
         evidence: ["web_server_analysis.upstream_health"]
-        confirm: "Logs del proxy muestran 'no live upstreams' / max_children alcanzado."
+        confirm: "Proxy logs show 'no live upstreams' / max_children reached."
         skills: ["web_server_analysis", "log_analysis"]
-        remediation: "Escalar workers/backends o revisar por qué están saturados."
-      - name: "Mantenimiento o app en arranque"
-        how: "La app devuelve 503 explícito (maintenance mode, migraciones en curso)."
+        remediation: "Scale workers/backends or investigate why they are saturated."
+      - name: "Maintenance or application startup"
+        how: "The application explicitly returns 503 (maintenance mode, migrations in progress)."
         evidence: ["http_health_analysis.endpoint_status"]
-        confirm: "Revisar la respuesta de la app directamente."
+        confirm: "Inspect the application's response directly."
         skills: ["http_health_analysis"]
-        remediation: "Esperar fin de mantenimiento / completar migraciones."
+        remediation: "Wait for maintenance to finish / complete migrations."
 
   504_gateway_timeout:
     label: "504 Gateway Timeout"
     checks:
-      - name: "Backend lento / colgado (DB lenta, N+1, deadlock)"
-        how: "El upstream aceptó pero no respondió a tiempo."
+      - name: "Slow / stalled backend (slow database, N+1, deadlock)"
+        how: "The upstream accepted the request but did not respond in time."
         evidence: ["http_health_analysis.response_times", "capacity_analysis.headroom"]
-        confirm: "curl -w '%{time_total}' al backend directo; revisar slow query log."
+        confirm: "Run curl -w '%{time_total}' against the backend directly; inspect the slow query log."
         skills: ["http_health_analysis", "capacity_analysis", "log_analysis"]
-        remediation: "Optimizar consultas / índice / timeout del proxy (Level 3)."
+        remediation: "Optimize queries / indexes / proxy timeout (Level 3)."
 
   500_internal_error:
     label: "500 Internal Server Error"
     checks:
-      - name: "Error de aplicación (stack trace en logs)"
-        how: "Excepción no capturada en el framework (Rails/Django/Node)."
+      - name: "Application error (stack trace in logs)"
+        how: "Unhandled framework exception (Rails/Django/Node)."
         evidence: ["log_analysis.journal_errors", "container_log_analysis.container_error_logs"]
-        confirm: "tail del log de la app: stack trace / excepción."
+        confirm: "Tail the application log for a stack trace / exception."
         skills: ["log_analysis", "container_log_analysis"]
-        remediation: "Corregir el bug; puede requerir deploy (Level 3)."
+        remediation: "Fix the bug; deployment may be required (Level 3)."
 
   cert_expired:
-    label: "Certificado expirado"
+    label: "Expired certificate"
     checks:
-      - name: "Certificado vencido o por vencer"
-        how: "La fecha de expiración ya pasó o está a <30 días sin auto-renovación."
+      - name: "Expired or soon-to-expire certificate"
+        how: "The expiry date has passed or is less than 30 days away without automatic renewal."
         evidence: ["tls_certificate_analysis.cert_expiry"]
         confirm: "openssl x509 -enddate -noout -in fullchain.pem."
         skills: ["tls_certificate_analysis", "backup_analysis"]
-        remediation: "Ejecutar renovación (certbot renew) y verificar el timer de auto-renovación."
+        remediation: "Renew the certificate (certbot renew) and verify the automatic renewal timer."
 
   cert_mismatch:
-    label: "Certificado no coincide con el dominio"
+    label: "Certificate does not match the domain"
     checks:
-      - name: "SAN no contiene el ServerName"
-        how: "El vhost usa un dominio que no está en el SAN del certificado."
+      - name: "SAN does not include ServerName"
+        how: "The vhost uses a domain missing from the certificate SAN."
         evidence: ["tls_certificate_analysis.cert_sans", "tls_certificate_analysis.cert_host_match"]
-        confirm: "Comparar ServerName vs SAN list."
+        confirm: "Compare ServerName with the SAN list."
         skills: ["tls_certificate_analysis", "web_server_analysis"]
-        remediation: "Re-emitir certificado para el dominio correcto."
+        remediation: "Reissue the certificate for the correct domain."
 
   service_down:
-    label: "Servicio systemd caído"
+    label: "Systemd service unavailable"
     checks:
-      - name: "Unidad en estado failed/inactive"
-        how: "El servicio que expone el puerto no está corriendo."
+      - name: "Unit in failed/inactive state"
+        how: "The service exposing the port is not running."
         evidence: ["systemd_analysis.services_failed", "reliability_analysis.recovery_mechanisms"]
         confirm: "systemctl status <unit>."
         skills: ["systemd_analysis", "reliability_analysis"]
-        remediation: "Arrancar el servicio y configurar Restart=on-failure (Level 3)."
+        remediation: "Start the service and configure Restart=on-failure (Level 3)."
 
   container_down:
-    label: "Contenedor detenido / sin proceso"
+    label: "Container stopped / no application process"
     checks:
-      - name: "Contenedor exited o app interna muerta"
-        how: "El contenedor puede estar 'running' con el proceso interno muerto."
+      - name: "Exited container or terminated internal application"
+        how: "The container may be 'running' while its internal application process has terminated."
         evidence: ["docker_troubleshooting.container_exit_codes", "docker_analysis.containers"]
-        confirm: "docker ps -a (estado) + curl al container-IP:puerto."
+        confirm: "docker ps -a (status) + curl to container-IP:port."
         skills: ["docker_analysis", "docker_troubleshooting", "container_log_analysis"]
-        remediation: "docker start / compose up y revisar por qué murió (exit code)."
+        remediation: "Run docker start / compose up and investigate why it terminated (exit code)."
 
   port_not_listening:
-    label: "Nada escuchando en el puerto esperado"
+    label: "Nothing listening on the expected port"
     checks:
-      - name: "Binding en interface/puerto incorrecto"
-        how: "La app escucha en 127.0.0.1 o en otro puerto, no donde el proxy espera."
+      - name: "Bound to the wrong interface/port"
+        how: "The application listens on 127.0.0.1 or another port rather than the proxy's expected destination."
         evidence: ["network_analysis.open_ports", "network_analysis.port_process_map"]
-        confirm: "ss -tlnp | grep <puerto>."
+        confirm: "ss -tlnp | grep <port>."
         skills: ["network_analysis", "web_server_analysis"]
-        remediation: "Ajustar bind de la app al puerto/interface correctos."
+        remediation: "Bind the application to the correct port/interface."
 
   disk_full:
-    label: "Disco lleno"
+    label: "Disk full"
     checks:
-      - name: "Partición al 100% / inodes agotados"
-        how: "Sin espacio, las apps fallan al escribir (DB, logs, sesiones)."
+      - name: "Partition at 100% / exhausted inodes"
+        how: "Without free space, application writes fail (database, logs, sessions)."
         evidence: ["disk_analysis.fs_usage", "disk_analysis.inodes", "disk_analysis.large_dirs"]
         confirm: "df -h; du -x / | sort -h | tail."
         skills: ["disk_analysis", "observability_analysis"]
-        remediation: "Rotar/limpiar logs y artefactos viejos; ampliar disco (Level 3)."
+        remediation: "Rotate/clean logs and old artifacts; expand the disk (Level 3)."
 
   oom_kill:
-    label: "Proceso matado por OOM"
+    label: "Process killed by OOM"
     checks:
-      - name: "Kernel OOM-killer mató un proceso"
-        how: "Sin swap + varios procesos grandes, el kernel mata uno para sobrevivir."
+      - name: "Kernel OOM killer terminated a process"
+        how: "Without swap and with several large processes, the kernel kills a process to recover memory."
         evidence: ["log_analysis.oom_in_logs", "memory_analysis.swap", "reliability_analysis.spof_list"]
-        confirm: "dmesg | grep -i 'killed process'; free -h (sin swap)."
+        confirm: "dmesg | grep -i 'killed process'; free -h (no swap)."
         skills: ["log_analysis", "memory_analysis", "reliability_analysis"]
-        remediation: "Habilitar swap, limitar memoria de contenedores, subir RAM (Level 3)."
+        remediation: "Enable swap, limit container memory, increase RAM (Level 3)."
 
   runaway_process:
-    label: "Proceso consumiendo CPU"
+    label: "CPU-consuming process"
     checks:
-      - name: "Bucle infinito / proceso runaway"
-        how: "Un proceso acapara CPU y degrada al resto."
+      - name: "Infinite loop / runaway process"
+        how: "One process monopolizes CPU and degrades other workloads."
         evidence: ["cpu_analysis.cpu_per_process", "process_analysis.top_cpu_processes"]
-        confirm: "top/ps ordenado por %CPU sostenido."
+        confirm: "Observe sustained usage in top/ps sorted by %CPU."
         skills: ["cpu_analysis", "process_analysis"]
-        remediation: "Investigar el proceso; reiniciar si corresponde (Level 3)."
+        remediation: "Investigate the process; restart if appropriate (Level 3)."
 
   slow_backend:
-    label: "Backend lento"
+    label: "Slow backend"
     checks:
-      - name: "Respuesta lenta de la app (no de red)"
-        how: "time_total alto en el backend directo."
+      - name: "Slow application response (not network latency)"
+        how: "High time_total when accessing the backend directly."
         evidence: ["http_health_analysis.response_times", "capacity_analysis.headroom"]
-        confirm: "curl -w '%{time_total}' al backend directo vs proxy."
+        confirm: "Compare curl -w '%{time_total}' for the direct backend and proxy."
         skills: ["http_health_analysis", "capacity_analysis", "log_analysis"]
-        remediation: "Optimizar app / escalar recursos / cache (Level 3)."
+        remediation: "Optimize the application / scale resources / add caching (Level 3)."
 
   slow_db:
-    label: "Base de datos lenta"
+    label: "Slow database"
     checks:
-      - name: "Queries lentas / sin índices / conexiones saturadas"
-        how: "La DB es el cuello de botella."
+      - name: "Slow queries / missing indexes / saturated connections"
+        how: "The database is the bottleneck."
         evidence: ["database_analysis.db_connections", "database_analysis.db_settings"]
         confirm: "Slow query log / pg_stat_activity."
         skills: ["database_analysis", "capacity_analysis"]
-        remediation: "Indexar / optimizar queries / pooling."
+        remediation: "Add indexes / optimize queries / use connection pooling."
 
   db_unreachable:
-    label: "Base de datos inalcanzable"
+    label: "Unreachable database"
     checks:
-      - name: "DB remota caída / red / credenciales"
-        how: "La app apunta a una DB fuera del host que no responde."
+      - name: "Remote database unavailable / network / credentials"
+        how: "The application points to a database outside the host that does not respond."
         evidence: ["database_analysis.db_location", "database_analysis.db_connections"]
-        confirm: "test TCP al host:puerto de la DB."
+        confirm: "Test TCP connectivity to the database host:port."
         skills: ["database_analysis", "network_analysis"]
-        remediation: "Restaurar conectividad o la DB remota."
+        remediation: "Restore connectivity or recover the remote database."
 
   crash_loop:
-    label: "Contenedor en crash loop"
+    label: "Container crash loop"
     checks:
-      - name: "Exit code no-cero recurrente / OOM / app error"
-        how: "El contenedor arranca y muere en bucle."
+      - name: "Repeated nonzero exit code / OOM / application error"
+        how: "The container repeatedly starts and terminates."
         evidence: ["docker_troubleshooting.container_exit_codes", "container_log_analysis.container_crash_logs"]
         confirm: "docker ps (RestartCount) + docker logs <c>."
         skills: ["docker_troubleshooting", "container_log_analysis"]
-        remediation: "Corregir la causa (config, migraciones, dependencias) y relanzar."
+        remediation: "Fix the cause (configuration, migrations, dependencies) and relaunch."
 
   dns_failure:
-    label: "Fallo de resolución DNS"
+    label: "DNS resolution failure"
     checks:
-      - name: "Nameserver inalcanzable / resolv.conf roto"
-        how: "EAI_AGAIN / ENOTFOUND en la app o contenedores."
+      - name: "Unreachable nameserver / broken resolv.conf"
+        how: "EAI_AGAIN / ENOTFOUND in the application or containers."
         evidence: ["docker_troubleshooting.container_dns_config", "network_analysis.dns"]
-        confirm: "nslookup desde host y desde el contenedor."
+        confirm: "Run nslookup from the host and from the container."
         skills: ["docker_troubleshooting", "network_analysis"]
-        remediation: "Corregir /etc/resolv.conf o el DNS de Docker (Level 3)."
+        remediation: "Fix /etc/resolv.conf or Docker DNS settings (Level 3)."
 
   log_growth:
-    label: "Crecimiento descontrolado de logs"
+    label: "Uncontrolled log growth"
     checks:
-      - name: "Log sin rotación llenando disco"
-        how: "Un log (app/log de contenedor) crece sin límite."
+      - name: "Unrotated log filling the disk"
+        how: "An application/container log grows without a bound."
         evidence: ["observability_analysis.log_rotation", "disk_analysis.large_dirs"]
         confirm: "find /var/log -size +500M."
         skills: ["observability_analysis", "disk_analysis"]
-        remediation: "Configurar logrotate / max-size de logs de Docker (Level 3)."
+        remediation: "Configure logrotate / Docker log max-size (Level 3)."
 
   backup_missing:
-    label: "Backups inexistentes o no probados"
+    label: "Missing or untested backups"
     checks:
-      - name: "Sin mecanismo de backup para datos persistentes"
-        how: "Datos (DB, uploads) sin respaldo o sin restore probado."
+      - name: "No backup mechanism for persistent data"
+        how: "Data (database, uploads) has no backup or tested restore procedure."
         evidence: ["backup_analysis.backup_mechanisms", "backup_analysis.restore_readiness"]
-        confirm: "Verificar cron/timer de backup y artefacto reciente."
+        confirm: "Check the backup cron/timer and a recent artifact."
         skills: ["backup_analysis"]
-        remediation: "Implementar backups + test de restauración (Level 3)."
+        remediation: "Implement backups and a restore test (Level 3)."
 
   teleport_service_failure:
-    label: "Agente Teleport no operativo"
+    label: "Teleport agent not operational"
     checks:
-      - name: "Servicio detenido o configuracion invalida"
-        how: "La unidad systemd no puede iniciar por configuracion, permisos o parametros incompatibles."
+      - name: "Stopped service or invalid configuration"
+        how: "The systemd unit cannot start because of configuration, permissions or incompatible parameters."
         evidence: ["teleport_analysis.teleport_service_state", "teleport_analysis.teleport_config_validity", "teleport_analysis.teleport_errors"]
-        confirm: "Cruzar ActiveState/ExecMainStatus, fecha de configuracion, inicio efectivo y el primer error causal del journal."
+        confirm: "Correlate ActiveState/ExecMainStatus, configuration timestamp, actual startup and the first causal journal error."
         skills: ["teleport_analysis", "systemd_analysis", "log_analysis"]
-        remediation: "Corregir la configuracion o permisos y reiniciar Teleport (Level 3)."
-      - name: "Fallo de identidad o registro"
-        how: "La identidad expiro, fue revocada o el metodo de join no puede registrar el agente."
+        remediation: "Fix configuration or permissions and restart Teleport (Level 3)."
+      - name: "Identity or registration failure"
+        how: "The identity expired, was revoked, or the join method cannot register the agent."
         evidence: ["teleport_analysis.teleport_errors", "teleport_analysis.teleport_roles"]
-        confirm: "Los logs muestran errores x509, certificado, join, token o CA pin de forma repetida."
+        confirm: "Logs repeatedly show x509, certificate, join, token or CA pin errors."
         skills: ["teleport_analysis"]
-        remediation: "Renovar la identidad mediante el metodo de join autorizado y reiniciar Teleport (Level 3)."
-      - name: "Proxy o Auth Server inalcanzable"
-        how: "DNS, ruta, firewall o puerto remoto impiden que el agente mantenga el tunel reverso."
+        remediation: "Renew the identity through the authorized join method and restart Teleport (Level 3)."
+      - name: "Unreachable Proxy or Auth Server"
+        how: "DNS, routing, firewall or the remote port prevents the agent from maintaining its reverse tunnel."
         evidence: ["teleport_analysis.teleport_connectivity", "teleport_analysis.teleport_errors"]
-        confirm: "La resolucion o prueba TCP falla y coincide temporalmente con timeout/refused/no route en logs."
+        confirm: "Resolution or TCP testing fails at the same time as timeout/refused/no-route log events."
         skills: ["teleport_analysis", "network_analysis", "dns_analysis", "firewall_analysis"]
-        remediation: "Restaurar DNS/ruta/ACL al endpoint Teleport correcto (Level 3)."
+        remediation: "Restore DNS/routing/ACL access to the correct Teleport endpoint (Level 3)."
 
   distributed_consensus_latency:
-    label: "etcd pierde quorum o cambia de lider por latencia"
+    label: "etcd loses quorum or changes leader because of latency"
     checks:
-      - name: "Latencia de disco o red supera los tiempos de Raft"
-        how: "Fsyncs lentos o perdida/retransmision entre peers retrasa heartbeats y elecciones."
+      - name: "Disk or network latency exceeds Raft timing limits"
+        how: "Slow fsyncs or peer packet loss/retransmission delays heartbeats and elections."
         evidence: ["etcd_analysis.etcd_latency", "etcd_analysis.etcd_quorum", "network_analysis.tcp_retransmits"]
-        confirm: "Cruzar cambios de lider y timeouts con histogramas WAL/backend, ss -tin y una serie de salud."
+        confirm: "Correlate leader changes and timeouts with WAL/backend histograms, ss -tin and a health time series."
         skills: ["etcd_analysis", "io_analysis", "network_analysis", "log_analysis"]
-        remediation: "Asegurar almacenamiento de baja latencia y una red privada estable entre miembros; ajustar timeouts solo despues de corregir la infraestructura."
+        remediation: "Provide low-latency storage and a stable private network between members; adjust timeouts only after fixing infrastructure."
 
   database_backend_flap:
-    label: "HAProxy pierde intermitentemente el primario Patroni"
+    label: "HAProxy intermittently loses the Patroni primary"
     checks:
-      - name: "El check /master alterna entre 200 y timeout"
-        how: "El primario existe, pero su API de salud o el camino TCP deja de responder dentro del timeout."
+      - name: "The /master check alternates between 200 and timeout"
+        how: "The primary exists, but its health API or TCP path stops responding within the timeout."
         evidence: ["web_server_analysis.tcp_backend_health", "network_analysis.tcp_retransmits"]
-        confirm: "Comparar eventos DOWN/no-server de HAProxy con probes directos a :8008 y sockets TCP hacia :5432."
+        confirm: "Compare HAProxy DOWN/no-server events with direct :8008 probes and TCP sockets to :5432."
         skills: ["web_server_analysis", "network_analysis", "database_analysis", "etcd_analysis"]
-        remediation: "Corregir la perdida/latencia hacia el primario y validar el host Patroni; no ocultar el fallo aumentando el health-check timeout."
+        remediation: "Fix loss/latency to the primary and validate the Patroni host; do not hide the fault by increasing the health-check timeout."
 
   # === CREDENTIAL THEFT HYPOTHESES ===
   env_files_exposed:
-    label: "Archivos .env expuestos"
+    label: "Exposed .env files"
     checks:
-      - name: ".env en directorio web-accessible"
-        how: "El servidor web puede servir directamente el archivo .env si está en el DocumentRoot sin protección."
+      - name: ".env in a web-accessible directory"
+        how: "The web server can serve .env directly when it is unprotected inside DocumentRoot."
         evidence: ["credential_exposure_analysis.web_exposed_env", "web_secret_exposure.web_env_access"]
-        confirm: "curl -I http://localhost/.env retorna 200 en vez de 404/403."
+        confirm: "curl -I http://localhost/.env returns 200 instead of 404/403."
         skills: ["credential_exposure_analysis", "web_secret_exposure"]
-        remediation: "Bloquear acceso a .env en nginx/apache (deny all) y mover .env fuera del DocumentRoot."
+        remediation: "Block .env access in nginx/apache (deny all) and move .env outside DocumentRoot."
       - name: ".env world-readable"
-        how: "El archivo .env tiene permisos 644/777 y cualquier usuario local puede leerlo."
+        how: "The .env file has mode 644/777 and any local user can read it."
         evidence: ["credential_exposure_analysis.env_permissions"]
-        confirm: "ls -la /ruta/.env muestra permisos que incluyen world-read."
+        confirm: "ls -la /path/.env shows world-readable permissions."
         skills: ["credential_exposure_analysis"]
-        remediation: "Cambiar permisos a 600 (owner-only) y verificar que no está en un repo git."
-      - name: ".env en directorio git"
-        how: "El .env está en un repositorio git y puede haber sido commiteado."
+        remediation: "Set mode 600 (owner-only) and check that the file is not tracked in Git."
+      - name: ".env in a Git directory"
+        how: "The .env file is inside a Git repository and may have been committed."
         evidence: ["credential_exposure_analysis.env_files", "git_credential_analysis.git_repos"]
-        confirm: "git -C /ruta/log check-attr -a .env; git -C /ruta/log log --all -- .env"
+        confirm: "git -C /path/repo check-attr -a .env; git -C /path/repo log --all -- .env"
         skills: ["credential_exposure_analysis", "git_credential_analysis"]
-        remediation: "Eliminar .env del historial git (git filter-branch o BFG) y agregar a .gitignore."
-      - name: ".env en /tmp o ubicación temporal"
-        how: "El .env fue copiado a /tmp o /var/tmp, posiblemente por un proceso de deployment o un atacante."
+        remediation: "Remove .env from Git history (git filter-branch or BFG) and add it to .gitignore."
+      - name: ".env in /tmp or a temporary location"
+        how: "The .env file was copied to /tmp or /var/tmp, possibly by a deployment process or an attacker."
         evidence: ["credential_exposure_analysis.env_files", "filesystem_forensics.file_timeline"]
-        confirm: "Verificar ownership y timestamp del archivo en /tmp."
+        confirm: "Check file ownership and timestamps in /tmp."
         skills: ["credential_exposure_analysis", "filesystem_forensics"]
-        remediation: "Eliminar .env de /tmp y verificar por qué fue copiado ahí."
+        remediation: "Remove .env from /tmp and investigate why it was copied there."
 
   git_credentials_stolen:
-    label: "Credenciales Git robadas"
+    label: "Stolen Git credentials"
     checks:
-      - name: ".git-credentials existe en el servidor"
-        how: "El archivo .git-credentials contiene credenciales en texto plano para GitHub/GitLab."
+      - name: ".git-credentials exists on the server"
+        how: "The .git-credentials file contains plaintext GitHub/GitLab credentials."
         evidence: ["git_credential_analysis.git_credentials"]
         confirm: "find / -name '.git-credentials' -type f"
         skills: ["git_credential_analysis"]
-        remediation: "Eliminar .git-credentials, usar credential helper con cifrado o SSH keys."
-      - name: "Token GitHub en .git/config"
-        how: "El .git/config contiene una URL con token embebido (https://ghp_TOKEN@github.com/...)."
+        remediation: "Remove .git-credentials; use an encrypted credential helper or SSH keys."
+      - name: "GitHub token in .git/config"
+        how: "The .git/config file contains a URL with an embedded token (https://ghp_TOKEN@github.com/...)."
         evidence: ["git_credential_analysis.git_credentials"]
         confirm: "cat .git/config | grep 'url.*@github.com'"
         skills: ["git_credential_analysis"]
-        remediation: "Eliminar token del .git/config, revocar el token en GitHub, usar SSH."
-      - name: "GitHub token en bash_history"
-        how: "Se usó un token de GitHub en un comando y quedó registrado en .bash_history."
+        remediation: "Remove the token from .git/config, revoke it in GitHub and use SSH."
+      - name: "GitHub token in bash_history"
+        how: "A GitHub token used in a command was recorded in .bash_history."
         evidence: ["git_credential_analysis.github_tokens", "filesystem_forensics.bash_history"]
         confirm: "grep 'ghp_' /root/.bash_history"
         skills: ["git_credential_analysis", "filesystem_forensics"]
-        remediation: "Revocar el token inmediatamente en GitHub, limpiar bash_history."
-      - name: "SSH key sin passphrase"
-        how: "Una SSH key sin passphrase fue encontrada, permitiendo acceso directo si se roba el archivo."
+        remediation: "Revoke the token immediately in GitHub and clean bash_history."
+      - name: "SSH key without a passphrase"
+        how: "An SSH key without a passphrase was found, allowing direct use if the file is stolen."
         evidence: ["git_credential_analysis.ssh_keys"]
-        confirm: "ssh-keygen -y -f /ruta/id_rsa (si pide passphrase está protegida)."
+        confirm: "ssh-keygen -y -f /path/id_rsa (a passphrase prompt indicates protection)."
         skills: ["git_credential_analysis"]
-        remediation: "Agregar passphrase a la key, rotar la key en GitHub."
-      - name: "Agent forwarding habilitado"
-        how: "ForwardAgent yes en SSH config permite abusar la agent del usuario para firmar commits."
+        remediation: "Add a passphrase and rotate the key in GitHub."
+      - name: "Agent forwarding enabled"
+        how: "ForwardAgent yes in SSH configuration can expose the user's agent to abuse for signing commits."
         evidence: ["git_credential_analysis.ssh_keys"]
         confirm: "grep -r 'ForwardAgent' ~/.ssh/config"
         skills: ["git_credential_analysis"]
-        remediation: "Deshabilitar ForwardAgent o restringir a hosts específicos."
+        remediation: "Disable ForwardAgent or restrict it to specific hosts."
 
   ssh_key_compromised:
-    label: "SSH key comprometida"
+    label: "Compromised SSH key"
     checks:
       - name: "SSH key world-readable"
-        how: "La clave privada SSH tiene permisos que permiten lectura por otros usuarios."
+        how: "The SSH private key permissions allow other users to read it."
         evidence: ["git_credential_analysis.ssh_keys"]
         confirm: "ls -la ~/.ssh/id_* | grep -v '600'"
         skills: ["git_credential_analysis"]
-        remediation: "chmod 600 la clave privada, 644 la pública."
-      - name: "Authorized_keys con keys desconocidas"
-        how: "Se agregaron keys SSH no reconocidas al authorized_keys."
+        remediation: "Use chmod 600 for the private key and 644 for the public key."
+      - name: "Unknown keys in authorized_keys"
+        how: "Unrecognized SSH keys were added to authorized_keys."
         evidence: ["security_analysis.persistence_indicators", "ssh_hardening_analysis.authorized_keys"]
-        confirm: "Comparar authorized_keys actual con el conocido."
+        confirm: "Compare current authorized_keys with the known baseline."
         skills: ["security_analysis", "ssh_hardening_analysis"]
-        remediation: "Remover keys no reconocidas, revocar en el servicio correspondiente."
+        remediation: "Remove unrecognized keys and revoke them in the corresponding service."
 
   docker_secret_leak:
-    label: "Secrets expuestos a través de Docker"
+    label: "Secrets exposed through Docker"
     checks:
-      - name: ".env montado como volumen en contenedor"
-        how: "El archivo .env está montado como volumen Docker, exponiendo secrets al contenedor."
+      - name: ".env mounted as a container volume"
+        how: "The .env file is mounted as a Docker volume, exposing secrets to the container."
         evidence: ["docker_secrets_analysis.secret_mounts"]
         confirm: "docker inspect <container> --format '{{range .Mounts}}{{.Source}}' | grep .env"
         skills: ["docker_secrets_analysis"]
-        remediation: "Usar Docker secrets (Swarm) o named secrets en vez de montar .env."
-      - name: "Docker socket montado en contenedor"
-        how: "El docker.sock está montado, permitiendo al contenedor controlar Docker."
+        remediation: "Use Docker secrets (Swarm) or named secrets instead of mounting .env."
+      - name: "Docker socket mounted inside a container"
+        how: "The mounted docker.sock allows the container to control Docker."
         evidence: ["docker_secrets_analysis.privileged_containers"]
         confirm: "docker inspect <container> --format '{{range .Mounts}}{{.Source}}' | grep docker.sock"
         skills: ["docker_secrets_analysis"]
-        remediation: "No montar docker.sock en contenedores de aplicación."
-      - name: "Contenedor privileged"
-        how: "Un contenedor tiene privilegios completos sobre el host."
+        remediation: "Do not mount docker.sock in application containers."
+      - name: "Privileged container"
+        how: "A container has full privileges over the host."
         evidence: ["docker_secrets_analysis.privileged_containers"]
         confirm: "docker inspect <container> --format '{{.HostConfig.Privileged}}'"
         skills: ["docker_secrets_analysis"]
-        remediation: "Eliminar --privileged, usar capabilities específicas."
+        remediation: "Remove --privileged and use specific capabilities."
 
   web_secret_exposure:
-    label: "Secrets expuestos vía servidor web"
+    label: "Secrets exposed through the web server"
     checks:
-      - name: "Servidor web sirve .env directamente"
-        how: "HTTP request a /.env retorna 200 con el contenido del archivo."
+      - name: "Web server serves .env directly"
+        how: "An HTTP request to /.env returns 200 with the file contents."
         evidence: ["web_secret_exposure.web_env_access"]
         confirm: "curl -I http://localhost/.env"
         skills: ["web_secret_exposure"]
-        remediation: "Bloquear .env en nginx/apache config, eliminar .env del DocumentRoot."
-      - name: "phpinfo() expuesto"
-        how: "phpinfo.php está accesible y expone variables de entorno del servidor."
+        remediation: "Block .env in nginx/apache configuration and remove .env from DocumentRoot."
+      - name: "Exposed phpinfo()"
+        how: "Accessible phpinfo.php exposes server environment variables."
         evidence: ["web_secret_exposure.phpinfo_exposed"]
         confirm: "curl -I http://localhost/phpinfo.php"
         skills: ["web_secret_exposure"]
-        remediation: "Eliminar phpinfo.php de producción."
+        remediation: "Remove phpinfo.php from production."
 
   exfiltration_detected:
-    label: "Exfiltración de datos detectada"
+    label: "Detected data exfiltration"
     checks:
-      - name: "curl/wget en cron a endpoint desconocido"
-        how: "Un cron job ejecuta curl/wget hacia un endpoint que no es del sistema."
+      - name: "Cron curl/wget to an unknown endpoint"
+        how: "A cron job runs curl/wget against an endpoint outside the system."
         evidence: ["network_exfiltration.cron_network_usage"]
-        confirm: "Revisar /etc/cron.d/* y /var/spool/cron/* por comandos curl."
+        confirm: "Inspect /etc/cron.d/* and /var/spool/cron/* for curl commands."
         skills: ["network_exfiltration"]
-        remediation: "Eliminar el cron job, investigar origen, rotar credenciales."
-      - name: "SSH tunnel activo"
-        how: "Hay un proceso ssh con flags -R/-L/-D activo (tunel inverso/proxy)."
+        remediation: "Remove the cron job, investigate its origin and rotate credentials."
+      - name: "Active SSH tunnel"
+        how: "An active ssh process uses -R/-L/-D flags (reverse tunnel/proxy)."
         evidence: ["network_exfiltration.ssh_tunnels"]
         confirm: "ps aux | grep 'ssh.*-[RLD]'"
         skills: ["network_exfiltration"]
-        remediation: "Cerrar el túnel, investigar quién lo abrió."
-      - name: "Conexiones outbound a puertos no estándar"
-        how: "Conexiones salientes a puertos como 4444, 1337, 31337 (comunes en C2)."
+        remediation: "Close the tunnel and investigate who opened it."
+      - name: "Outbound connections to non-standard ports"
+        how: "Outbound connections use ports such as 4444, 1337 or 31337 (common in C2)."
         evidence: ["network_exfiltration.outbound_connections"]
         confirm: "ss -tnp | grep -E ':4444|:1337|:31337'"
         skills: ["network_exfiltration"]
-        remediation: "Bloquear el tráfico, investigar el proceso origen."
+        remediation: "Block the traffic and investigate the originating process."

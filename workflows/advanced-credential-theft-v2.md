@@ -1,17 +1,17 @@
 # Workflow: Advanced Credential Theft Investigation v2.0
 
-Workflow forense avanzado para determinar CÓMO se robaron las .env o las claves
-para push de GitHub. Combina skills existentes con un skill nuevo y mejorado
-que realiza análisis completo de vectores de ataque.
+Advanced forensic workflow to investigate how .env files or GitHub push keys were
+stolen. Combines discovery and platform skills with the advanced credential-theft
+investigation capability to analyze attack vectors.
 
-## Objetivo
-Reconstruir el vector de ataque completo:
-1. Cómo entró el atacante
-2. Qué credenciales accedió
-3. Cómo exfiltró los datos
-4. Si dejó mecanismos de persistencia
+## Objective
+Reconstruct the attack vector:
+1. How the attacker gained access.
+2. Which credentials were accessed.
+3. How data was exfiltrated.
+4. Whether persistence mechanisms were left behind.
 
-## Diagrama de ejecución
+## Execution diagram
 
 ```
 PHASE 1: DISCOVERY (existing skills)
@@ -111,41 +111,41 @@ PHASE 8: REPORT
       └── Recommended remediations
 ```
 
-## Reglas de ejecución por fase
+## Per-phase execution rules
 
-### Fase 1-2 (Discovery + Security Base)
-- Ejecutar TODOS los skills sin condicionales
-- Son la base del inventario y postura de seguridad
+### Phases 1–2 (Discovery + Security Baseline)
+- Run all unconditional skills.
+- They establish inventory and security posture.
 
-### Fase 3 (Advanced Credential Theft Investigation)
-- Ejecutar EL skill `advanced_credential_theft_investigation`
-- Este skill es autocontenido y ejecuta todas las fases internas
-- NO requiere skills adicionales (pero puede complementarlos)
+### Phase 3 (Advanced Credential Theft Investigation)
+- Run `advanced_credential_theft_investigation`.
+- This skill is self-contained and covers its internal phases.
+- It does not require additional investigative skills, but can complement them.
 
-### Fase 4 (Platform)
-- Ejecutar SOLO si el componente fue detectado en Fase 1
-- Seguir triggers de `_index.yaml`
+### Phase 4 (Platform)
+- Run only if the component was detected in Phase 1.
+- Follow `_index.yaml` triggers.
 
-### Fase 5-6 (Resources + Analysis)
-- Ejecutar todos — son cheap y provide contexto
+### Phases 5–6 (Resources + Analysis)
+- Run all listed skills: they provide low-cost context.
 
-## Reglas duras
+## Hard rules
 
-1. **Read-only.** Nada que modifique el servidor.
-2. **Evidence first.** Cada afirmación con evidencia almacenada.
-3. **Fact vs Hypothesis.** Etiquetar cada claim.
-4. **Secret redaction.** Valores nunca en evidencia/reporte.
-5. **No assumptions.** Descubrir, nunca asumir.
+1. **Read-only.** Do not modify the server.
+2. **Evidence first.** Every claim needs stored evidence.
+3. **Fact vs hypothesis.** Label every claim.
+4. **Secret redaction.** Never include secret values in evidence/reports.
+5. **No assumptions.** Discover; never assume.
 
 ## Output
 
-Directorio de reportes: `reportes/<run-id>/`
-- `reportes/<run-id>/evidencia/` — YAML records por comando
-- `reportes/<run-id>/advanced-credential-theft/` — evidencia del skill principal
-- `reportes/<run-id>/findings/` — hallazgos
-- `reportes/<run-id>/findings.yaml` — findings estructurados
-- `reportes/<run-id>/inventory.yaml` — inventario
-- `reportes/<run-id>/informe-forense-<run-id>.html` — reporte HTML forense
+Report directory: `reportes/<run-id>/`
+- `reportes/<run-id>/evidencia/` — per-command YAML records
+- `reportes/<run-id>/advanced-credential-theft/` — primary skill evidence
+- `reportes/<run-id>/findings/` — findings
+- `reportes/<run-id>/findings.yaml` — structured findings
+- `reportes/<run-id>/inventory.yaml` — inventory
+- `reportes/<run-id>/informe-forense-<run-id>.html` — forensic HTML report
 
 ## Safety levels
 
@@ -155,8 +155,8 @@ Directorio de reportes: `reportes/<run-id>/`
 | 2 | TEST | Non-destructive tests (HTTP probes) | On by default |
 | 3 | CHANGE | Mutating actions | Off — requires explicit approval |
 
-## Tecnologias sin skill
+## Technology without a dedicated skill
 
-No crear una skill por cada producto detectado. Reutilizar evidencia y capacidades
-forenses genericas; cubrir huecos concretos con checks ad-hoc L1/L2 acotados. Solo
-persistir una nueva skill cuando supere el gate completo de `WORKFLOW.md`.
+Do not create a skill for every detected product. Reuse evidence and generic
+forensic capabilities; cover concrete gaps with bounded L1/L2 ad-hoc checks.
+Persist a new skill only after the complete gate in `WORKFLOW.md` passes.

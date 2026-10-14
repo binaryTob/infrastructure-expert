@@ -46,6 +46,17 @@ Even read-only commands can return secrets (e.g. `kubectl get secret`, env files
 
 Redaction preserves metadata: location, type, detected length, risk. Never the value.
 
+These are handling requirements, not guarantees of complete detection.
+`redact.py` uses heuristics; review outputs for unsupported secret formats,
+personal data and target identifiers before sharing. `ssh_exec.sh` redacts
+command metadata as well as stdout/stderr and creates private local evidence.
+Raw material still exists transiently in process memory and process arguments.
+
+The mutability blocklist is best effort and can miss shell syntax or indirect
+operations. It does not make arbitrary shell commands safe. Use a trusted local
+session, least-privilege SSH access and bounded reviewed payloads. The wrapper
+accepts L1/L2, not approved L3 execution.
+
 ## If something looks like an active compromise
 
 Stop, preserve evidence, do NOT touch the suspected artifact, do NOT kill the process, do NOT block the IP. Document and surface as a RISK + RECOMMENDATION with highest severity; let the operator decide (Level 3).

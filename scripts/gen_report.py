@@ -382,13 +382,13 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     evidence = read_evidence(run_dir)
     comp = detect_components(evidence)
     n_skills, conditional_skills, all_skill_ids = load_skill_catalog()
-    skills_exec = ", ".join(all_skill_ids) if all_skill_ids else "desconocido"
+    skills_exec = "no registrado (falta skills-used.yaml)"
     skills_used_path = os.path.join(run_dir, "skills-used.yaml")
     if os.path.exists(skills_used_path):
         skills_used = load_yaml(skills_used_path) or {}
         executed = [
             s.get("id", "") for s in skills_used.get("skills", [])
-            if s.get("status") != "skipped" and s.get("id")
+            if s.get("status") == "executed" and s.get("id")
         ]
         skills_exec = ", ".join(executed) if executed else "ninguno"
 
@@ -785,7 +785,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     sections.append(("logs", "Logs"))
     logs_html = '<div class="card"><h4>Errores recientes del sistema</h4>'
     errores_ssh = [l for l in journal if "ssh" in l.lower() or "authentication failure" in l.lower()]
-    logs_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:6px">Ataques SSH: {len(errores_ssh)} intentos de fuerza bruta en journal reciente</p>'
+    logs_html += f'<p style="font-size:11px;color:var(--muted);margin-bottom:6px">Eventos con referencias a SSH/autenticacion: {len(errores_ssh)}. Requieren correlacion; no confirman fuerza bruta.</p>'
     for l in journal[:20]:
         css_cls = "warn" if "failure" in l.lower() or "error" in l.lower() else ""
         logs_html += f'<div style="font-size:10px;padding:1px 0" class="{css_cls}">{cesc(l[:130])}</div>'
@@ -801,11 +801,11 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     # Build HTML body
     html = f'''<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Infrastructure Audit — {host}</title>{CSS}</head><body>
+<title>Infrastructure Audit — {cesc(host)}</title>{CSS}</head><body>
 {build_nav(sections)}
 <main>
 <h1>Infrastructure Audit Report</h1>
-<p class="sub">Generado: {now} · Host: {host} · Run: {run_id}</p>
+<p class="sub">Generado: {now} · Host: {cesc(host)} · Run: {cesc(run_id)}</p>
 
 <div class="meta">
 <div class="meta-item"><div class="val">{f_by_sev['CRITICAL']}</div><div class="lbl">Criticos</div></div>
@@ -829,7 +829,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
 <div class="kv"><span class="k">Causa raiz</span><span class="v">{cesc(root_cause)}</span></div>
 <div class="kv"><span class="k">Estado actual</span><span class="v">{cesc(current_status)}</span></div>
 </div>
-<p style="font-size:12px;color:var(--muted);margin-top:8px">Skills ejecutados: {skills_exec}</p>
+<p style="font-size:12px;color:var(--muted);margin-top:8px">Skills ejecutados: {cesc(skills_exec)}</p>
 
 <h2 id="infra-overview">Infraestructura</h2>
 {infra_html}
@@ -901,7 +901,7 @@ def gen_html(run_dir, findings=None, inventory=None, migration=None):
     conditional = ", ".join(conditional_skills) if conditional_skills else "ninguno"
     html += f'''
 <h2 id="evidence">Evidencia</h2>
-<p style="color:var(--muted);font-size:12px">{ev_count} archivos YAML de evidencia almacenados en <code>reportes/{run_id}/evidencia/</code></p>
+<p style="color:var(--muted);font-size:12px">{ev_count} archivos YAML de evidencia almacenados en <code>reportes/{cesc(run_id)}/evidencia/</code></p>
 <p style="color:var(--muted);font-size:12px">Skills condicionales (se ejecutan solo si se detecta su trigger): {conditional}</p>
 </main>{JS}</body></html>'''
 

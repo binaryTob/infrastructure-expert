@@ -1,8 +1,16 @@
 # Infrastructure Expert
 
-**Autonomous infrastructure analysis agent** powered by AI. Connects to a remote Linux server over SSH, discovers its real architecture from evidence (never from assumptions), runs non-destructive tests, and produces a professional offline HTML report covering security, networking, Kubernetes, performance, reliability, observability, backups, and migration readiness.
+**Evidence-driven Linux infrastructure analysis through an AI coding agent.**
+The operator's local agent session uses SSH to collect evidence, selects relevant
+analysis skills and produces an offline HTML report. The catalog covers security,
+networking, containers, Kubernetes, performance, reliability, observability,
+backups and migration readiness; applicability depends on what is discovered.
 
-The "agent" is an AI coding session reading `AGENTS.md` + `workflows/` + `skills/`. There is no daemon; everything is reproducible from evidence stored in `reportes/`.
+The "agent" is an AI coding session reading `AGENTS.md` + `workflows/` + `skills/`.
+There is no daemon or autonomous Python orchestration engine. The session reasons
+about evidence and writes inventory, graph and findings; Python/Bash provide SSH
+capture, heuristic redaction, catalog validation and HTML rendering. Evidence
+stored in `reportes/` supports review; it is not a tamper-evident forensic chain.
 
 ## What it does
 
@@ -19,17 +27,27 @@ The "agent" is an AI coding session reading `AGENTS.md` + `workflows/` + `skills
 
 ```bash
 # 1. Clone
-git clone <repo-url>
+git clone https://github.com/binaryTob/infrastructure-expert.git
 cd infrastructure-expert
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+source .venv/bin/activate
 
 # 2. Configure the target (never commit this file)
 cp config/target.example.json config/target.json
 # Edit: host, port, user, private_key
+# The supplied 192.0.2.10 address is reserved for documentation, not a live target.
 
 # 3. Run an audit — ask the AI agent:
 #   "Run the infrastructure audit workflow on the configured target."
 #   Modes: full | quick | discovery | container | security
 ```
+
+Obtain authorization for the exact host and any application/cluster probes first.
+Use an AI coding session rooted in this repository that reads `AGENTS.md`. The
+skills are catalog Markdown documents, not OpenCode `SKILL.md` auto-discovery
+packages; the workflow loads them explicitly. The target does not need this repo
+or an AI runtime installed.
 
 ### Output
 
@@ -50,6 +68,12 @@ All scan data and reports are stored in `reportes/<run-id>/`:
 | **L3 — CHANGE** | Mutating commands (`kubectl apply`, service restart, config edit) | **Off** — requires explicit per-action approval |
 
 The agent **never** automatically: restarts services, edits configs, installs packages, deletes files, or runs `kubectl apply/delete`.
+
+This is an **operator/agent contract**, supported by a regex mutability blocklist
+in `scripts/ssh_exec.sh`; it is not an execution sandbox or proof that arbitrary
+shell text is read-only. Use a least-privilege SSH account and review payloads.
+The wrapper accepts L1/L2 only. L3 actions require separate per-action approval;
+the wrapper does not provide a mutation executor.
 
 ## How it works
 
@@ -173,22 +197,48 @@ Do not create a skill merely because a technology was discovered. First use exis
 5. Add entry in `skills/_index.yaml` under `skills:` and optional workflow.
 6. Run `python3 scripts/validate_catalog.py`.
 
-## Requirements
+## Requirements and verification
 
-- `python3` + `pyyaml` — for report generation and redaction
-- `ssh` — connectivity to the target host
+- Python 3.10+ + PyYAML (pinned in `requirements.txt`) — report generation/catalog checks
+- Bash, OpenSSH, GNU `timeout`, and standard Unix utilities — local SSH wrapper
 - An AI coding agent (opencode / Claude Code style) that reads `AGENTS.md`
 
-No other dependencies. Skills are plain text instructions, not executable code.
+Skills contain remote command inventories. Individual checks additionally require
+the corresponding target utilities and permissions; missing tools are evidence
+gaps, not successful checks. No remote packages are installed automatically.
+
+```bash
+python scripts/validate_catalog.py
+bash -n scripts/ssh_exec.sh scripts/redact.sh scripts/run_id.sh
+python -m unittest discover -s tests -v
+python scripts/gen_report.py reportes/<run-id>
+```
+
+Run report generation only on an existing local evidence directory. Tests use
+synthetic inputs and a fake SSH executable; they never connect to a target.
+GitHub Actions runs catalog, shell syntax, regression and history secret checks.
+There is no measured live-host coverage or cross-distribution certification.
+
+The SSH wrapper resolves environment overrides first, then `config/target.json`,
+then defaults. It records redacted command text/stdout/stderr under
+`reportes/<run-id>/evidencia/`. A zero wrapper exit means evidence was recorded;
+inspect the YAML `exit_code` before treating a command as successful. Reports
+show executed skills only when recorded as `executed` in `skills-used.yaml`;
+an absent ledger is explicitly unknown.
 
 ## Security
 
-- **Secrets are never stored.** `scripts/redact.py` strips passwords, tokens, keys, and connection strings before evidence is written to disk.
-- **No credentials are committed.** `config/target.json`, `reportes/` are gitignored.
+- **Heuristic redaction.** `scripts/redact.py` filters common passwords, tokens,
+  private keys and connection strings before evidence is written. It cannot
+  guarantee detection of every format. Command metadata is redacted too, but
+  command arguments and raw output still exist transiently in process memory.
+- **Publication boundary.** `config/target.json` and `reportes/` are gitignored,
+  not a data-loss prevention system. Review evidence, personal data, hostnames
+  and findings before sharing; never commit credentials or real target records.
 - **Read-only by default.** Mutations require explicit operator approval per `SAFETY.md`.
 - **Completely reusable.** Only `config/target.json` changes between scans. No hardcoded hostnames.
 - **No scan history in repo.** All evidence, reports, and scan data go into `reportes/` which is gitignored.
 
-## License
-
-MIT
+Report HTML escapes target/run/skill metadata and finding content. It renders
+supplied evidence and analyst findings; it does not independently validate the
+agent's conclusions, perform migrations or implement hardening/rollback.

@@ -19,8 +19,9 @@
 # Exit codes: 0 (ran+recorded, regardless of remote exit), 2 (blocked L3),
 #             3 (ssh connect failure), 4 (bad args).
 #
-# This script NEVER runs Level-3 commands. It refuses them.
+# The guard refuses recognized Level-3 patterns; it is not a shell sandbox.
 set -uo pipefail
+umask 077
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -28,13 +29,13 @@ ROOT="$(cd "$HERE/.." && pwd)"
 HOST="${SSH_HOST:-}"
 PORT="${SSH_PORT:-}"
 USER="${SSH_USER:-}"
-KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
-CT="${CONNECT_TIMEOUT:-15}"
-TO="${COMMAND_TIMEOUT:-60}"
+KEY="${SSH_KEY:-}"
+CT="${CONNECT_TIMEOUT:-}"
+TO="${COMMAND_TIMEOUT:-}"
 
-if [[ -z "$HOST" || -z "$USER" ]]; then
-  if [[ -f "$ROOT/config/target.json" ]]; then
-    get() { python3 - "$ROOT/config/target.json" "$1" <<'PY'
+get() {
+  [[ -f "$ROOT/config/target.json" ]] || return 0
+  python3 - "$ROOT/config/target.json" "$1" <<'PY'
 import json,sys,pathlib
 d=json.loads(pathlib.Path(sys.argv[1]).read_text())
 def digs(o,ks):
@@ -45,7 +46,7 @@ def digs(o,ks):
 print(digs(d, sys.argv[2].split(".")))
 PY
 }
-  fi
+if [[ -f "$ROOT/config/target.json" ]]; then
   HOST="${HOST:-$(get ssh.host)}"
   PORT="${PORT:-$(get ssh.port)}"
   USER="${USER:-$(get ssh.user)}"
@@ -55,15 +56,33 @@ PY
   TO="${TO:-$(get ssh.command_timeout)}"
 fi
 PORT="${PORT:-22}"
-HOST="${HOST:?missing ssh.host}"
-USER="${USER:?missing ssh.user}"
+KEY="${KEY:-$HOME/.ssh/id_ed25519}"
+KEY="${KEY/#\~/$HOME}"
+CT="${CT:-15}"
+TO="${TO:-60}"
 
 if [[ $# -lt 4 ]]; then
   echo "usage: $0 <evidence-basename> <category> <safety L1|L2> \"<command>\" [run_dir]" >&2
   exit 4
 fi
 EV_BASE="$1"; CATEGORY="$2"; SAFETY="$3"; CMD="$4"
-EV_DIR="${5:-$(scripts/run_id.sh dir)}"
+if [[ ! "$EV_BASE" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ||
+      ! "$CATEGORY" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ||
+      ! "$SAFETY" =~ ^L[12]$ ||
+      ! "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.:-]*$ ||
+      ! "$USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ||
+      ! "$PORT" =~ ^[0-9]{1,5}$ ||
+      ! "$CT" =~ ^[1-9][0-9]{0,5}$ || ! "$TO" =~ ^[1-9][0-9]{0,5}$ ]]; then
+  echo '[ssh_exec] invalid target, evidence metadata, safety level or timeout' >&2
+  exit 4
+fi
+if (( 10#$PORT < 1 || 10#$PORT > 65535 )); then
+  echo '[ssh_exec] invalid SSH port' >&2
+  exit 4
+fi
+EV_DIR="${5:-$("$HERE/run_id.sh" dir)/evidencia}"
+# Command arguments may contain credentials too. Fail before SSH if redaction fails.
+REDACTED_CMD="$(printf '%s' "$CMD" | "$HERE/redact.sh")" || exit 3
 
 is_level3() {
   local lc lc_clean
@@ -117,7 +136,7 @@ is_level3() {
 
 if is_level3 "$CMD"; then
   cat >&2 <<MSG
-[ssh_exec] BLOCKED (Level-3 mutability guard): $CMD
+[ssh_exec] BLOCKED (Level-3 mutability guard).
 This command appears to mutate the host/cluster. Level-3 actions require
 explicit per-action operator approval. See SAFETY.md. If this is a false
 positive, run the command manually or relax the guard explicitly.
@@ -145,6 +164,7 @@ SSH_OPTS=(
   -o LogLevel=ERROR
   -i "$KEY"
   -p "$PORT"
+  --
 )
 
 REMOTE_RC="$(python3 "$HERE/capture_redacted.py" "$REMOTE_OUT" "$REMOTE_ERR" \
@@ -161,7 +181,7 @@ REDACTED_ERR="$(<"$REMOTE_ERR")"
   printf 'safety_level: %s\n' "$SAFETY"
   printf 'category: %s\n' "$CATEGORY"
   printf 'command: |2\n'
-  printf '%s\n' "$CMD" | sed 's/^/  /'
+  printf '%s\n' "$REDACTED_CMD" | sed 's/^/  /'
   printf 'exit_code: %d\n' "$REMOTE_RC"
   printf 'stdout: |2\n'
   printf '%s\n' "$REDACTED_OUT" | sed 's/^/  /'
@@ -174,5 +194,5 @@ REDACTED_ERR="$(<"$REMOTE_ERR")"
 rm -f "$REMOTE_OUT" "$REMOTE_ERR"
 
 N_LINES=$(printf '%s\n' "$REDACTED_OUT" | grep -c . || true)
-printf '[ok] rc=%d lines=%d ev=%s :: %s\n' "$REMOTE_RC" "$N_LINES" "$EV_PATH" "$CMD"
+printf '[ok] rc=%d lines=%d ev=%s\n' "$REMOTE_RC" "$N_LINES" "$EV_PATH"
 exit 0

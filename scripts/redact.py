@@ -45,7 +45,7 @@ _kv = re.compile(
     r'(?:(?:' + _STANDALONE + r')(?![A-Za-z0-9])'
     r'|(?:' + _COMPOUND + r')(?![A-Za-z0-9]))'
     r'[A-Za-z0-9_.\-]*?)'
-    r'(?P<eq>\s*[=:]\s*)'
+    r'(?P<eq>["\']?\s*[=:]\s*)'
     r'(?P<val>"[^"]*"|\'[^\']*\'|[^\s,"\'`]+)',
     re.I)
 def _kv_repl(m):

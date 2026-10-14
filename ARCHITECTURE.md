@@ -82,7 +82,24 @@ agent prints executive summary to console
 
 - **Evidence first**: no finding exists without a stored, redacted evidence record. Reproducible, auditable.
 - **No daemon**: an opencode session is the runtime; skills are data. Nothing to install beyond `ssh` + `python3`.
-- **Safety by construction**: `ssh_exec.sh` carries a mutability blocklist; the session context also forbids Level 3.
+- **Layered operational guardrails**: `ssh_exec.sh` carries a best-effort regex mutability blocklist; the session contract also forbids automatic Level 3. Neither is an OS sandbox. The local operator/agent is trusted, and remote privileges must be restricted independently.
 - **Reusable across hosts**: only `config/target.json` changes. Skills are host-agnostic command inventories.
 - **Curated skill growth**: unsupported technology is handled first by generic capabilities and bounded ad-hoc checks. A new skill is persisted only when a distinct, reusable capability passes the creation gate in `WORKFLOW.md`.
 - **Read-only by default**: all skills are L1 or L2. Zero destructive actions without approval.
+
+## Verification and evidence boundaries
+
+The deterministic helpers are tested offline with synthetic data and a fake SSH
+executable. `validate_catalog.py` verifies catalog/frontmatter agreement and
+dependency/workflow consistency; it does not execute skill commands.
+
+SSH key/timeouts honor environment > target configuration > defaults. Evidence
+metadata accepts safe basenames/categories and L1/L2 levels. Command text and
+both output streams are heuristically redacted before persistence; evidence is
+private by default. Raw input still exists in process memory, and SSH capture
+currently buffers output there. Bound each remote query to avoid excessive output.
+
+Inventory, graph, findings and the executed-skill ledger are produced by the
+agent session. The report renderer consumes these files; it cannot prove their
+claims. Missing skill execution records remain unknown rather than treating the
+catalog as executed. Keyword-matching journal events is not proof of an attack.
